@@ -21,7 +21,7 @@ build: build-rust
 
 .PHONY: build-release
 build-release: build-rust-release
-	g++ -O3 -o main.out main.cpp ./target/debug/librust_nes_emulator_minimal.so
+	g++ -O3 -o main.out main.cpp ./target/release/librust_nes_emulator_minimal.so
 
 .PHONY: build-rust
 build-rust:
