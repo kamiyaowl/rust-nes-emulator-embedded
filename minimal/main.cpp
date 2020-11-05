@@ -6,7 +6,7 @@
 #include <iostream>
 #include <cstdint>
 
-#include "../rust_nes_emulator_embedded.h"
+#include "rust_nes_emulator_embedded.h"
 
 uint8_t fb[EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT][EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH][EMBEDDED_EMULATOR_NUM_OF_COLOR];
 
