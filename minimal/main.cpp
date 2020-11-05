@@ -1,8 +1,3 @@
-// test for FFI
-// g++ -o main.out main.cpp ../target/debug/librust_nes_emulator_embedded.so
-// * ../.cargo/configでビルドターゲットをarm向けにしてると死ぬ
-// * ../Cargo.tml crate-type=cdylibにする
-
 #include <iostream>
 #include <cstdint>
 

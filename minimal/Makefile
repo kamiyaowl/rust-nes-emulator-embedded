@@ -5,6 +5,10 @@ CFLAGS =
 run: build
 	./main.out
 
+.PHONY: run-release
+run-release: build
+	./main.out
+
 .PHONY: clean
 clean:
 	cargo clean
