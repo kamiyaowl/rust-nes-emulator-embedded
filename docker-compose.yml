@@ -1,80 +1,30 @@
 version: "3"
 services:
-    # build lib
-    build-lib:
-      build: .
-      volumes:
-        - ./:/work
-      command: cargo build
-    build-lib-release:
-      build: .
-      volumes:
-        - ./:/work
-      command: cargo build --release
-    # run test
-    test:
-      build: .
-      volumes:
-        - ./:/work
-      working_dir: /work/test
-      command: cargo test
-    test-release:
-      build: .
-      volumes:
-        - ./:/work
-      working_dir: /work/test
-      command: cargo test --release
-    # run bench
-    bench:
-      build: .
-      volumes:
-        - ./:/work
-      working_dir: /work/test
-      command: rustup run nightly cargo bench  --features "bench"
-    
-    # build desktop
-    build-desktop:
-      build: .
-      volumes:
-        - ./:/work
-      working_dir: /work/desktop
-      command: cargo build
-    build-desktop-release:
-      build: .
-      volumes:
-        - ./:/work
-      working_dir: /work/desktop
-      command: cargo build --release
-    # build wasm
-    build-wasm:
-      build: .
-      volumes:
-        - ./:/work
-      working_dir: /work/wasm
-      command: wasm-pack build
-    build-wasm-release:
-      build: .
-      volumes:
-        - ./:/work
-      working_dir: /work/wasm
-      command: wasm-pack build --release
-    # build wasm webpage
-    build-wasm-webpage:
-      build: .
-      volumes:
-        - ./:/work
-      working_dir: /work/wasm
-      command: npm run build
-    # build embedded
-    build-embedded-lib:
-      build: .
-      volumes:
-        - ./:/work
-      working_dir: /work/embedded
-      command: rustup run nightly cargo build --release
-    build-mbed:
-      build: .
-      volumes:
-        - ./:/work
-      working_dir: /work/embedded
-      command: make
+  # build minimal
+  build-minimal:
+    build: .
+    volumes:
+      - ./:/work
+    working_dir: /work/minimal
+    command: make build
+
+  build-minimal-release:
+    build: .
+    volumes:
+      - ./:/work
+    working_dir: /work/minimal
+    command: make build-release
+
+  run-minimal:
+    build: .
+    volumes:
+      - ./:/work
+    working_dir: /work/minimal
+    command: make run
+
+  run-minimal-release:
+    build: .
+    volumes:
+      - ./:/work
+    working_dir: /work/minimal
+    command: make run-release

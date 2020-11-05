@@ -4,7 +4,7 @@ use super::system::*;
 use super::video_system::*;
 
 /// 1lineあたりかかるCPUサイクル
-pub const CPU_CYCLE_PER_LINE: usize = (341 / 3); // ppu cyc -> cpu cyc
+pub const CPU_CYCLE_PER_LINE: usize = 341 / 3; // ppu cyc -> cpu cyc
 /// 色の種類(RGB)
 pub const NUM_OF_COLOR: usize = 3;
 /// ユーザーに表示される領域幅
@@ -24,8 +24,7 @@ pub const SCREEN_TILE_HEIGHT: u16 = (VISIBLE_SCREEN_HEIGHT as u16) / PIXEL_PER_T
 /// 1属性テーブルエントリに対する横, 縦タイル数
 pub const BG_NUM_OF_TILE_PER_ATTRIBUTE_TABLE_ENTRY: u16 = 4;
 /// 属性テーブルの横エントリ数 8
-pub const ATTRIBUTE_TABLE_WIDTH: u16 =
-    (SCREEN_TILE_WIDTH / BG_NUM_OF_TILE_PER_ATTRIBUTE_TABLE_ENTRY);
+pub const ATTRIBUTE_TABLE_WIDTH: u16 = SCREEN_TILE_WIDTH / BG_NUM_OF_TILE_PER_ATTRIBUTE_TABLE_ENTRY;
 
 /// PPU内部のOAMの容量 dmaの転送サイズと等しい
 pub const OAM_SIZE: usize = 0x100;
