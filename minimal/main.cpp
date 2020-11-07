@@ -1,4 +1,6 @@
 #include <iostream>
+#include <fstream>
+
 #include <cstdint>
 #include <cstdlib>
 
@@ -25,10 +27,34 @@ int main(int argc, char* argv[])
     std::cout << "INFO: Init emulator" << std::endl;
     EmbeddedEmulator_init();
 
+    // Open rom file
     std::cout << "INFO: Load rom binary '" << romPath << "'" << std::endl;
-    if (!EmbeddedEmulator_load()) {
+    std::ifstream ifs(romPath, std::ios::binary | std::ios::in);
+    if (!ifs) {
         std::cout << "ERROR: Failed to read '" << romPath << "'" << std::endl;
-        return 1;
+        return -1;
+    }
+
+    // Get rom size
+    ifs.seekg(0, std::ios::end);
+    const int romSize = ifs.tellg();
+    if (!romSize) {
+        std::cout << "ERROR: ROM size is zero" << std::endl;
+        ifs.close();
+        return -1;
+    }
+
+    // Read rom
+    uint8_t* romBuf = new uint8_t[romSize];
+    ifs.seekg(0, std::ios::beg);
+    ifs.read((char*)romBuf, romSize);
+    ifs.close();
+
+    // Parse rom header and parepare, reset
+    if (!EmbeddedEmulator_load()) {
+        std::cout << "ERROR: failed to parse rom binary" << std::endl;
+        delete[] romBuf;
+        return -1;
     }
 
     // Screen Initialize
@@ -67,6 +93,7 @@ int main(int argc, char* argv[])
     std::cout << "INFO: Finalize" << std::endl;
     UnloadTexture(fbTexture);
     CloseWindow();
+    delete[] romBuf;
 
     std::cout << "INFO: Exit" << std::endl;
     return 0;
