@@ -17,7 +17,7 @@ pub extern "C" fn rust_eh_personality() {}
 extern crate rust_nes_emulator;
 use rust_nes_emulator::prelude::*;
 
-pub const EMBEDDED_EMULATOR_NUM_OF_COLOR: usize = 3;
+pub const EMBEDDED_EMULATOR_NUM_OF_COLOR: usize = 4;
 pub const EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH: usize = 256;
 pub const EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT: usize = 240;
 

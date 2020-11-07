@@ -3,7 +3,7 @@
 #include <cstdlib>
 #include <new>
 
-static const uintptr_t EMBEDDED_EMULATOR_NUM_OF_COLOR = 3;
+static const uintptr_t EMBEDDED_EMULATOR_NUM_OF_COLOR = 4;
 
 static const uintptr_t EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT = 240;
 

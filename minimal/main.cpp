@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cstdint>
+#include <cstdlib>
 
 #include "raylib.h"
 #include "rust_nes_emulator_embedded.h"
@@ -16,41 +17,40 @@ int main(int argc, char* argv[])
     }
 
     // Screen Initialize
-    const uint32_t scale = 2;
-    const uint32_t screenWidth = EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH * scale;
-    const uint32_t screenHeight = EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT * scale;
-    const uint32_t fps = 60;
+    const float scale = 2;
+    const uint32_t screenWidth = static_cast<int>(EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH * scale);
+    const uint32_t screenHeight = static_cast<int>(EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT * scale);
+    const uint32_t fps = 0;
 
     InitWindow(screenWidth, screenHeight, "rust-nes-emulator-embedded");
-    SetTargetFPS(fps);
+    if (fps > 0) {
+        SetTargetFPS(fps);
+    }
+
+    // FrameBuffer Image
+    Image fbImg = { fb, EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH, EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH, 1, UNCOMPRESSED_R8G8B8A8 };
+    Texture2D fbTexture = LoadTextureFromImage(fbImg);
 
     // Main game loop
     while (!WindowShouldClose())
     {
-        // Update
+        // Emulate and update framebuffer
         EmbeddedEmulator_update_screen(&fb);
+        Color* fbPtr = reinterpret_cast<Color*>(fb); // Color* fbPtr = GetImageData(fbImg); free(fbPtr);
+        UpdateTexture(fbTexture, fbPtr);
 
         // Draw
         BeginDrawing();
-        ClearBackground(BLACK);
-        for(uint32_t j = 0 ; j < EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT ; ++j) {
-            for(uint32_t i = 0 ; i < EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH ; ++i) {
-                Color c = {
-                    .r = fb[j][i][0],
-                    .g = fb[j][i][1],
-                    .b = fb[j][i][2],
-                    .a = 255,
-                };
-                const uint32_t x = i * scale;
-                const uint32_t y = j * scale;
-                DrawRectangle(x, y, scale, scale, c);
-            }
+        {
+            DrawTextureEx(fbTexture, Vector2{ 0, 0 }, 0, scale, WHITE);
+            DrawFPS(10, 10);
         }
-        DrawFPS(10, 10);
         EndDrawing();
     }
 
     // Finalize
+    UnloadTexture(fbTexture);
+    UnloadImage(fbImg);
     CloseWindow();
 
     return 0;
