@@ -24,29 +24,25 @@ int main(int argc, char* argv[])
     InitWindow(screenWidth, screenHeight, "rust-nes-emulator-embedded");
     SetTargetFPS(fps);
 
+    // FrameBuffer Image
+    Image fbImg = { fb, EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH, EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH, 1, UNCOMPRESSED_R8G8B8A8 };
+    Texture2D fbTexture = LoadTextureFromImage(fbImg);
+
     // Main game loop
     while (!WindowShouldClose())
     {
         // Update
         EmbeddedEmulator_update_screen(&fb);
+        Color* fbPtr = reinterpret_cast<Color*>(fb);
+        UpdateTexture(fbTexture, fbPtr);
 
         // Draw
         BeginDrawing();
-        ClearBackground(BLACK);
-        for(uint32_t j = 0 ; j < EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT ; ++j) {
-            for(uint32_t i = 0 ; i < EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH ; ++i) {
-                Color c = {
-                    .r = fb[j][i][0],
-                    .g = fb[j][i][1],
-                    .b = fb[j][i][2],
-                    .a = 255,
-                };
-                const uint32_t x = i * scale;
-                const uint32_t y = j * scale;
-                DrawRectangle(x, y, scale, scale, c);
-            }
+        {
+            ClearBackground(BLACK);
+            DrawTexture(fbTexture, 0, 0, WHITE);
+            DrawFPS(10, screenHeight - 20);
         }
-        DrawFPS(10, 10);
         EndDrawing();
     }
 

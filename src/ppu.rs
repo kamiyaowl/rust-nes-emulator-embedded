@@ -6,7 +6,7 @@ use super::video_system::*;
 /// 1lineあたりかかるCPUサイクル
 pub const CPU_CYCLE_PER_LINE: usize = 341 / 3; // ppu cyc -> cpu cyc
 /// 色の種類(RGB)
-pub const NUM_OF_COLOR: usize = 3;
+pub const NUM_OF_COLOR: usize = 4;
 /// ユーザーに表示される領域幅
 pub const VISIBLE_SCREEN_WIDTH: usize = 256;
 /// ユーザーに表示される領域高さ
@@ -404,6 +404,7 @@ impl Ppu {
             fb[pixel_y][pixel_x][0] = draw_color.0;
             fb[pixel_y][pixel_x][1] = draw_color.1;
             fb[pixel_y][pixel_x][2] = draw_color.2;
+            fb[pixel_y][pixel_x][3] = 0xff; // alpha blending
 
             // モノクロ出力対応(とりあえず総加平均...)
             if is_monochrome {
