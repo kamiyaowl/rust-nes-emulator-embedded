@@ -8,23 +8,10 @@ services:
     working_dir: /work/minimal
     command: make build
 
-  build-minimal-release:
-    build: .
-    volumes:
-      - ./:/work
-    working_dir: /work/minimal
-    command: make build-release
-
+  # TODO: X11 forwarding
   run-minimal:
     build: .
     volumes:
       - ./:/work
     working_dir: /work/minimal
     command: make run
-
-  run-minimal-release:
-    build: .
-    volumes:
-      - ./:/work
-    working_dir: /work/minimal
-    command: make run-release

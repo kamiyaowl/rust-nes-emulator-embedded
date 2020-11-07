@@ -19,3 +19,4 @@ Cargo.lock
 
 **/*.out
 **/BUILD
+game
