@@ -9,19 +9,33 @@ uint8_t fb[EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT][EMBEDDED_EMULATOR_VISIBLE_SC
 
 int main(int argc, char* argv[])
 {
+    // parse command line args
+    if (argc < 2) {
+        std::cout << "game [rom_path] [scale*] [fps*]" << std::endl
+                  << " - rom_path: .nes ROM file path (required) " << std::endl
+                  << " - scale: screen scale. (default 2)" << std::endl
+                  << " - fps: frame per seconds. If 0 is specified, no control is given. (default 60)" << std::endl;
+        return 0;
+    }
+    const char* romPath = argv[1];
+    const float scale = (argc > 2) ? std::stof(argv[2]) : 2.0;
+    const uint32_t fps = (argc > 3) ? std::stoi(argv[3]) : 60;
+
     // Emulator initialize
+    std::cout << "INFO: Init emulator" << std::endl;
     EmbeddedEmulator_init();
-    if (EmbeddedEmulator_load() == false) {
-        std::cout << "emulator load error" << std::endl;
+
+    std::cout << "INFO: Load rom binary '" << romPath << "'" << std::endl;
+    if (!EmbeddedEmulator_load()) {
+        std::cout << "ERROR: Failed to read '" << romPath << "'" << std::endl;
         return 1;
     }
 
     // Screen Initialize
-    const float scale = 2;
     const uint32_t screenWidth = static_cast<int>(EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH * scale);
     const uint32_t screenHeight = static_cast<int>(EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT * scale);
-    const uint32_t fps = 0;
 
+    std::cout << "INFO: Init window" << std::endl;
     InitWindow(screenWidth, screenHeight, "rust-nes-emulator-embedded");
     if (fps > 0) {
         SetTargetFPS(fps);
@@ -32,11 +46,12 @@ int main(int argc, char* argv[])
     Texture2D fbTexture = LoadTextureFromImage(fbImg);
 
     // Main game loop
+    std::cout << "INFO: Start emulation" << std::endl;
     while (!WindowShouldClose())
     {
         // Emulate and update framebuffer
         EmbeddedEmulator_update_screen(&fb);
-        Color* fbPtr = reinterpret_cast<Color*>(fb); // Color* fbPtr = GetImageData(fbImg); free(fbPtr);
+        Color* fbPtr = reinterpret_cast<Color*>(fb);
         UpdateTexture(fbTexture, fbPtr);
 
         // Draw
@@ -49,9 +64,10 @@ int main(int argc, char* argv[])
     }
 
     // Finalize
+    std::cout << "INFO: Finalize" << std::endl;
     UnloadTexture(fbTexture);
-    UnloadImage(fbImg);
     CloseWindow();
 
+    std::cout << "INFO: Exit" << std::endl;
     return 0;
 }

@@ -274,6 +274,8 @@ OBJ_DIR = obj
 SRC = $(call rwildcard, *.c, *.h)
 #OBJS = $(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 OBJS ?= main.cpp
+# Define command line args
+ARG = ../roms/other/hello.nes
 
 # Default target entry
 .PHONY: build
@@ -284,7 +286,7 @@ build:
 
 .PHONY: run
 run: build
-	sudo ./$(PROJECT_NAME)$(EXT)
+	sudo ./$(PROJECT_NAME)$(EXT) $(ARG)
 
 # Clean everything
 .PHONY: clean
