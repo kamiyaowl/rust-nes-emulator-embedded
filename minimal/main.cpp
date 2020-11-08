@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <functional>
 
 #include <cstdint>
 #include <cstdlib>
@@ -51,7 +52,8 @@ int main(int argc, char* argv[])
     ifs.close();
 
     // Parse rom header and parepare, reset
-    if (!EmbeddedEmulator_load()) {
+    const bool isLoad = EmbeddedEmulator_load(romBuf);
+    if (!isLoad) {
         std::cout << "ERROR: failed to parse rom binary" << std::endl;
         delete[] romBuf;
         return -1;

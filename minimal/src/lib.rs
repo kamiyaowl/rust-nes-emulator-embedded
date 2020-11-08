@@ -78,17 +78,14 @@ pub unsafe extern "C" fn EmbeddedEmulator_reset() {
 }
 
 /// .nesファイルを読み込みます
-/// `data` - nesファイルのバイナリ
+/// `bin_ptr` - nesファイルのバイナリの先頭ポインタ
 #[no_mangle]
-pub unsafe extern "C" fn EmbeddedEmulator_load() -> bool {
-    let binary = include_bytes!("../../roms/other/hello.nes");
-    // let binary = include_bytes!("../../roms/my_dump/mario.nes");
-
+pub unsafe extern "C" fn EmbeddedEmulator_load(bin_ptr: *const u8) -> bool {
     if let Some(ref mut emu) = EMULATOR {
         let success = emu
             .cpu_sys
             .cassette
-            .from_ines_binary(|addr: usize| binary[addr]);
+            .from_ines_binary(|addr: usize| *bin_ptr.offset(addr as isize));
         if success {
             EmbeddedEmulator_reset();
         }

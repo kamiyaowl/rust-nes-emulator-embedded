@@ -33,8 +33,8 @@ extern "C" {
 void EmbeddedEmulator_init();
 
 /// .nesファイルを読み込みます
-/// `data` - nesファイルのバイナリ
-bool EmbeddedEmulator_load();
+/// `bin_ptr` - nesファイルのバイナリの先頭ポインタ
+bool EmbeddedEmulator_load(const uint8_t *bin_ptr);
 
 /// エミュレータをリセットします
 /// カセットの中身はリセットしないので実機のリセット相当の処理です
