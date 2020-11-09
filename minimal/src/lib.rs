@@ -55,16 +55,16 @@ pub enum CpuInterrupt {
 }
 
 /// 配列への参照を構造体への参照に変換します
-/// `raw_ptr` - 構造体の参照先。 ARM向けを考慮すると、4byte alignした位置に配置されていることが望ましい
-unsafe fn get_struct_ptr<T>(raw_ptr: &mut u8) -> &mut T {
-    core::mem::transmute::<&mut u8, &mut T>(raw_ptr)
+/// `raw_ref` - 構造体の参照先。 ARM向けを考慮すると、4byte alignした位置に配置されていることが望ましい
+unsafe fn get_struct_ref<T>(raw_ref: &mut u8) -> &mut T {
+    core::mem::transmute::<&mut u8, &mut T>(raw_ref)
 }
 
 /// 配列への参照に対し、特定の構造体とみなして初期化します
-/// `raw_ptr` - 構造体の参照先。 ARM向けを考慮すると、4byte alignした位置に配置されていることが望ましい
-unsafe fn init_struct_ptr<T: Default>(raw_ptr: &mut u8) {
-    let data_ptr = get_struct_ptr::<T>(raw_ptr);
-    *data_ptr = T::default();
+/// `raw_ref` - 構造体の参照先。 ARM向けを考慮すると、4byte alignした位置に配置されていることが望ましい
+unsafe fn init_struct_ref<T: Default>(raw_ref: &mut u8) {
+    let data_ref = get_struct_ref::<T>(raw_ref);
+    *data_ref = T::default();
 }
 
 /// 画面全体を描画するのに必要なCPU Cylceを返します
@@ -93,31 +93,31 @@ pub unsafe extern "C" fn EmbeddedEmulator_GetPpuDataSize() -> usize {
 
 /// Cpuの構造体を初期化します
 #[no_mangle]
-pub unsafe extern "C" fn EmbeddedEmulator_InitCpu(raw_ptr: &mut u8) {
-    init_struct_ptr::<Cpu>(raw_ptr);
+pub unsafe extern "C" fn EmbeddedEmulator_InitCpu(raw_ref: &mut u8) {
+    init_struct_ref::<Cpu>(raw_ref);
 }
 
 /// Systemの構造体を初期化します
 #[no_mangle]
-pub unsafe extern "C" fn EmbeddedEmulator_InitSystem(raw_ptr: &mut u8) {
-    init_struct_ptr::<System>(raw_ptr);
+pub unsafe extern "C" fn EmbeddedEmulator_InitSystem(raw_ref: &mut u8) {
+    init_struct_ref::<System>(raw_ref);
 }
 
 /// Ppuの構造体を初期化します
 #[no_mangle]
-pub unsafe extern "C" fn EmbeddedEmulator_InitPpu(raw_ptr: &mut u8) {
-    init_struct_ptr::<Ppu>(raw_ptr);
+pub unsafe extern "C" fn EmbeddedEmulator_InitPpu(raw_ref: &mut u8) {
+    init_struct_ref::<Ppu>(raw_ref);
 }
 
 /// CPUに特定の割り込みを送信します
 #[no_mangle]
 pub unsafe extern "C" fn EmbeddedEmulator_InterruptCpu(
-    raw_cpu_ptr: &mut u8,
-    raw_system_ptr: &mut u8,
+    raw_cpu_ref: &mut u8,
+    raw_system_ref: &mut u8,
     interrupt: CpuInterrupt,
 ) {
-    let cpu_ptr = get_struct_ptr::<Cpu>(raw_cpu_ptr);
-    let system_ptr = get_struct_ptr::<System>(raw_system_ptr);
+    let cpu_ref = get_struct_ref::<Cpu>(raw_cpu_ref);
+    let system_ref = get_struct_ref::<System>(raw_system_ref);
     let irq = match interrupt {
         CpuInterrupt::NMI => Interrupt::NMI,
         CpuInterrupt::RESET => Interrupt::RESET,
@@ -125,65 +125,65 @@ pub unsafe extern "C" fn EmbeddedEmulator_InterruptCpu(
         CpuInterrupt::BRK => Interrupt::BRK,
         _ => Interrupt::RESET, // とりあえずResetにしておく
     };
-    (*cpu_ptr).interrupt(&mut *system_ptr, irq);
+    (*cpu_ref).interrupt(&mut *system_ref, irq);
 }
 
 /// エミュレータをリセットします
 /// 各種変数の初期化後、RESET割り込みが行われます
 #[no_mangle]
 pub unsafe extern "C" fn EmbeddedEmulator_Reset(
-    raw_cpu_ptr: &mut u8,
-    raw_system_ptr: &mut u8,
-    raw_ppu_ptr: &mut u8
+    raw_cpu_ref: &mut u8,
+    raw_system_ref: &mut u8,
+    raw_ppu_ref: &mut u8,
 ) {
-    let cpu_ptr = get_struct_ptr::<Cpu>(raw_cpu_ptr);
-    let system_ptr = get_struct_ptr::<System>(raw_system_ptr);
-    let ppu_ptr = get_struct_ptr::<Ppu>(raw_ppu_ptr);
-    (*cpu_ptr).reset();
-    (*system_ptr).reset();
-    (*ppu_ptr).reset();
-    (*cpu_ptr).interrupt(&mut *system_ptr, Interrupt::RESET);
+    let cpu_ref = get_struct_ref::<Cpu>(raw_cpu_ref);
+    let system_ref = get_struct_ref::<System>(raw_system_ref);
+    let ppu_ref = get_struct_ref::<Ppu>(raw_ppu_ref);
+    (*cpu_ref).reset();
+    (*system_ref).reset();
+    (*ppu_ref).reset();
+    (*cpu_ref).interrupt(&mut *system_ref, Interrupt::RESET);
 }
 
 /// ROMを読み込みます
 /// 成功した場合はtrueが返ります。実行中のエミュレートは中止して、Resetをかけてください
 #[no_mangle]
 pub unsafe extern "C" fn EmbeddedEmulator_LoadRom(
-    raw_system_ptr: &mut u8,
-    rom_ptr: *const u8,
+    raw_system_ref: &mut u8,
+    rom_ref: *const u8,
 ) -> bool {
-    let system_ptr = get_struct_ptr::<System>(raw_system_ptr);
-    (*system_ptr)
+    let system_ref = get_struct_ref::<System>(raw_system_ref);
+    (*system_ref)
         .cassette
-        .from_ines_binary(|addr: usize| *rom_ptr.offset(addr as isize))
+        .from_ines_binary(|addr: usize| *rom_ref.offset(addr as isize))
 }
 
 /// CPUを1cycエミュレーションします
 #[no_mangle]
 pub unsafe extern "C" fn EmbeddedEmulator_EmulateCpu(
-    raw_cpu_ptr: &mut u8,
-    raw_system_ptr: &mut u8,
+    raw_cpu_ref: &mut u8,
+    raw_system_ref: &mut u8,
 ) -> u8 {
-    let cpu_ptr = get_struct_ptr::<Cpu>(raw_cpu_ptr);
-    let system_ptr = get_struct_ptr::<System>(raw_system_ptr);
+    let cpu_ref = get_struct_ref::<Cpu>(raw_cpu_ref);
+    let system_ref = get_struct_ref::<System>(raw_system_ref);
 
-    (*cpu_ptr).step(&mut (*system_ptr))
+    (*cpu_ref).step(&mut (*system_ref))
 }
 
 /// PPUをエミュレーションします。cpu cycを基準に進めます
 /// `cpu_cyc`: cpuでエミュレーション経過済で、PPU側に未反映のCPU Cycle数合計
 #[no_mangle]
 pub unsafe extern "C" fn EmbeddedEmulator_EmulatePpu(
-    raw_ppu_ptr: &mut u8,
-    raw_system_ptr: &mut u8,
+    raw_ppu_ref: &mut u8,
+    raw_system_ref: &mut u8,
     cpu_cycle: usize,
     fb: &mut [[[u8; EMBEDDED_EMULATOR_NUM_OF_COLOR]; EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH];
              EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT],
 ) -> CpuInterrupt {
-    let ppu_ptr = get_struct_ptr::<Ppu>(raw_ppu_ptr);
-    let system_ptr = get_struct_ptr::<System>(raw_system_ptr);
+    let ppu_ref = get_struct_ref::<Ppu>(raw_ppu_ref);
+    let system_ref = get_struct_ref::<System>(raw_system_ref);
 
-    match (*ppu_ptr).step(cpu_cycle, &mut (*system_ptr), fb) {
+    match (*ppu_ref).step(cpu_cycle, &mut (*system_ref), fb) {
         Some(Interrupt::NMI) => CpuInterrupt::NMI,
         Some(Interrupt::RESET) => CpuInterrupt::RESET,
         Some(Interrupt::IRQ) => CpuInterrupt::IRQ,
@@ -196,15 +196,15 @@ pub unsafe extern "C" fn EmbeddedEmulator_EmulatePpu(
 /// `player_num` - Player番号, 0 or 1
 #[no_mangle]
 pub unsafe extern "C" fn EmbeddedEmulator_UpdateKey(
-    raw_system_ptr: &mut u8,
+    raw_system_ref: &mut u8,
     player_num: u32,
     key: KeyEvent,
 ) {
-    let system_ptr = get_struct_ptr::<System>(raw_system_ptr);
+    let system_ref = get_struct_ref::<System>(raw_system_ref);
     let p = match player_num {
-        0 => &mut (*system_ptr).pad1,
-        1 => &mut (*system_ptr).pad2,
-        _ => &mut (*system_ptr).pad1, // とりあえず1Pにしておく
+        0 => &mut (*system_ref).pad1,
+        1 => &mut (*system_ref).pad2,
+        _ => &mut (*system_ref).pad1, // とりあえず1Pにしておく
     };
 
     match key {
@@ -262,14 +262,14 @@ pub unsafe extern "C" fn EmbeddedEmulator_reset() {
 }
 
 /// .nesファイルを読み込みます
-/// `bin_ptr` - nesファイルのバイナリの先頭ポインタ
+/// `bin_ref` - nesファイルのバイナリの先頭ポインタ
 #[no_mangle]
-pub unsafe extern "C" fn EmbeddedEmulator_load(bin_ptr: *const u8) -> bool {
+pub unsafe extern "C" fn EmbeddedEmulator_load(bin_ref: *const u8) -> bool {
     if let Some(ref mut emu) = EMULATOR {
         let success = emu
             .cpu_sys
             .cassette
-            .from_ines_binary(|addr: usize| *bin_ptr.offset(addr as isize));
+            .from_ines_binary(|addr: usize| *bin_ref.offset(addr as isize));
         if success {
             EmbeddedEmulator_reset();
         }
