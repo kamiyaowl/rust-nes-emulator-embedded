@@ -1,6 +1,8 @@
 #include <iostream>
 #include <fstream>
 #include <functional>
+#include <map>
+#include <tuple>
 
 #include <cstdint>
 #include <cstdlib>
@@ -73,10 +75,34 @@ int main(int argc, char* argv[])
     Image fbImg = { fb, EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH, EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH, 1, UNCOMPRESSED_R8G8B8A8 };
     Texture2D fbTexture = LoadTextureFromImage(fbImg);
 
+    // Key mapping
+    const std::map<int, std::tuple<KeyEvent, KeyEvent>> keyMaps {
+        { KEY_J, { KeyEvent::PressA, KeyEvent::ReleaseA } },
+        { KEY_K, { KeyEvent::PressB, KeyEvent::ReleaseB } },
+        { KEY_U, { KeyEvent::PressSelect, KeyEvent::ReleaseSelect } },
+        { KEY_I, { KeyEvent::PressStart, KeyEvent::ReleaseStart } },
+        { KEY_W, { KeyEvent::PressUp, KeyEvent::ReleaseUp } },
+        { KEY_S, { KeyEvent::PressDown, KeyEvent::ReleaseDown } },
+        { KEY_A, { KeyEvent::PressLeft, KeyEvent::ReleaseLeft } },
+        { KEY_D, { KeyEvent::PressRight, KeyEvent::ReleaseRight } },
+    };
+
     // Main game loop
     std::cout << "INFO: Start emulation" << std::endl;
     while (!WindowShouldClose())
     {
+        // Input
+        for (const auto& [key, value]: keyMaps) {
+            if (IsKeyPressed(key)) {
+                EmbeddedEmulator_update_key(std::get<0>(value));
+            }
+            if (IsKeyReleased(key)) {
+                EmbeddedEmulator_update_key(std::get<1>(value));
+            }
+        }
+        if (IsKeyReleased(KEY_R)) {
+            EmbeddedEmulator_reset();
+        }
         // Emulate and update framebuffer
         EmbeddedEmulator_update_screen(&fb);
         Color* fbPtr = reinterpret_cast<Color*>(fb);
