@@ -10,7 +10,6 @@
 #include "raylib.h"
 #include "rust_nes_emulator_embedded.h"
 
-uint8_t fb[EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT][EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH][EMBEDDED_EMULATOR_NUM_OF_COLOR];
 
 int main(int argc, char* argv[])
 {
@@ -23,18 +22,39 @@ int main(int argc, char* argv[])
         return 0;
     }
     const char* romPath = argv[1];
-    const float scale = (argc > 2) ? std::stof(argv[2]) : 2.0;
-    const uint32_t fps = (argc > 3) ? std::stoi(argv[3]) : 60;
+    const float scale   = (argc > 2) ? std::stof(argv[2]) : 2.0;
+    const uint32_t fps  = (argc > 3) ? std::stoi(argv[3]) : 60;
+
+    // Allocate workarea
+    // In this application, there is no constraint on allocate, so allocate a contiguous area
+    const uint32_t fbDataSize     = EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH * EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT * EMBEDDED_EMULATOR_NUM_OF_COLOR;
+    const uint32_t cpuDataSize    = EmbeddedEmulator_GetCpuDataSize();
+    const uint32_t systemDataSize = EmbeddedEmulator_GetSystemDataSize();
+    const uint32_t ppuDataSize    = EmbeddedEmulator_GetPpuDataSize();
+    std::cout << "INFO: Allocate buffer" << std::endl
+              << " - FB     : " << fbDataSize << " bytes" << std::endl
+              << " - Cpu    : " << cpuDataSize << " bytes" << std::endl
+              << " - System : " << systemDataSize << " bytes" << std::endl
+              << " - Ppu    : " << ppuDataSize << " bytes" << std::endl;
+
+    uint8_t* workBuf   = new uint8_t[fbDataSize + cpuDataSize + systemDataSize + ppuDataSize];
+    uint8_t* fbBuf     = &workBuf[0];
+    uint8_t* cpuBuf    = &workBuf[fbDataSize];
+    uint8_t* systemBuf = &workBuf[fbDataSize + cpuDataSize];
+    uint8_t* ppuBuf    = &workBuf[fbDataSize + cpuDataSize + systemDataSize];
 
     // Emulator initialize
     std::cout << "INFO: Init emulator" << std::endl;
-    EmbeddedEmulator_init();
+    EmbeddedEmulator_InitCpu(cpuBuf);
+    EmbeddedEmulator_InitSystem(systemBuf);
+    EmbeddedEmulator_InitPpu(ppuBuf);
 
     // Open rom file
     std::cout << "INFO: Load rom binary '" << romPath << "'" << std::endl;
     std::ifstream ifs(romPath, std::ios::binary | std::ios::in);
     if (!ifs) {
         std::cout << "ERROR: Failed to read '" << romPath << "'" << std::endl;
+        delete[] workBuf;
         return -1;
     }
 
@@ -44,25 +64,32 @@ int main(int argc, char* argv[])
     if (!romSize) {
         std::cout << "ERROR: ROM size is zero" << std::endl;
         ifs.close();
+        delete[] workBuf;
         return -1;
     }
 
     // Read rom
-    uint8_t* romBuf = new uint8_t[romSize];
+    std::cout << "INFO: Allocate ROM buffer " << romSize << " bytes" << std::endl;
+    uint8_t* romBuf = new uint8_t[romSize]; // another workarea
     ifs.seekg(0, std::ios::beg);
     ifs.read((char*)romBuf, romSize);
     ifs.close();
 
     // Parse rom header and parepare, reset
-    const bool isLoad = EmbeddedEmulator_load(romBuf);
+    const bool isLoad = EmbeddedEmulator_LoadRom(systemBuf, romBuf);
     if (!isLoad) {
         std::cout << "ERROR: failed to parse rom binary" << std::endl;
         delete[] romBuf;
+        delete[] workBuf;
         return -1;
     }
 
+    // Reset
+    std::cout << "INFO: Reset" << std::endl;
+    EmbeddedEmulator_Reset(cpuBuf, systemBuf, ppuBuf);
+
     // Screen Initialize
-    const uint32_t screenWidth = static_cast<int>(EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH * scale);
+    const uint32_t screenWidth  = static_cast<int>(EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH * scale);
     const uint32_t screenHeight = static_cast<int>(EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT * scale);
 
     std::cout << "INFO: Init window" << std::endl;
@@ -72,7 +99,7 @@ int main(int argc, char* argv[])
     }
 
     // FrameBuffer Image
-    Image fbImg = { fb, EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH, EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH, 1, UNCOMPRESSED_R8G8B8A8 };
+    Image fbImg = { fbBuf, EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH, EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH, 1, UNCOMPRESSED_R8G8B8A8 };
     Texture2D fbTexture = LoadTextureFromImage(fbImg);
 
     // Key mapping
@@ -88,27 +115,42 @@ int main(int argc, char* argv[])
     };
 
     // Main game loop
+    // Since there are keystrokes, the main thread should be the CPU thread.
+    const uint32_t cyclePerFrame = EmbeddedEmulator_GetCpuCyclePerFrame();
     std::cout << "INFO: Start emulation" << std::endl;
     while (!WindowShouldClose())
     {
         // Input
         for (const auto& [key, value]: keyMaps) {
             if (IsKeyPressed(key)) {
-                EmbeddedEmulator_update_key(std::get<0>(value));
+                EmbeddedEmulator_UpdateKey(systemBuf, EMBEDDED_EMULATOR_PLAYER_0, std::get<0>(value));
             }
             if (IsKeyReleased(key)) {
-                EmbeddedEmulator_update_key(std::get<1>(value));
+                EmbeddedEmulator_UpdateKey(systemBuf, EMBEDDED_EMULATOR_PLAYER_0, std::get<1>(value));
             }
         }
         if (IsKeyReleased(KEY_R)) {
-            EmbeddedEmulator_reset();
+            std::cout << "INFO: Reset" << std::endl;
+            EmbeddedEmulator_Reset(cpuBuf, systemBuf, ppuBuf);
         }
-        // Emulate and update framebuffer
-        EmbeddedEmulator_update_screen(&fb);
-        Color* fbPtr = reinterpret_cast<Color*>(fb);
-        UpdateTexture(fbTexture, fbPtr);
+
+        // Emulate cpu/ppu
+        for(uint32_t cycleSum = 0; cycleSum < cyclePerFrame; ) {
+            // emulate cpu
+            const uint32_t cyc = EmbeddedEmulator_EmulateCpu(cpuBuf, systemBuf);
+            cycleSum += cyc;
+            // emulate ppu
+            const CpuInterrupt irq = EmbeddedEmulator_EmulatePpu(ppuBuf, systemBuf, fbBuf, cyc);
+            // Interrupt from ppu
+            if (irq != CpuInterrupt::NONE) {
+                EmbeddedEmulator_InterruptCpu(cpuBuf, systemBuf, irq);
+            }
+        }
 
         // Draw
+        Color* fbPtr = reinterpret_cast<Color*>(fbBuf);
+        UpdateTexture(fbTexture, fbPtr);
+
         BeginDrawing();
         {
             DrawTextureEx(fbTexture, Vector2{ 0, 0 }, 0, scale, WHITE);
@@ -122,6 +164,7 @@ int main(int argc, char* argv[])
     UnloadTexture(fbTexture);
     CloseWindow();
     delete[] romBuf;
+    delete[] workBuf;
 
     std::cout << "INFO: Exit" << std::endl;
     return 0;
