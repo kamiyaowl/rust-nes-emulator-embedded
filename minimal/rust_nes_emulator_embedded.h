@@ -42,7 +42,7 @@ enum class KeyEvent : uint8_t {
 
 extern "C" {
 
-/// CPUを1cycエミュレーションします
+/// CPUを1stepエミュレーションします
 uint8_t EmbeddedEmulator_EmulateCpu(uint8_t *raw_cpu_ref, uint8_t *raw_system_ref);
 
 /// PPUをエミュレーションします。cpu cycを基準にlineごとに進めます

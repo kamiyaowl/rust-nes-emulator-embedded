@@ -164,7 +164,7 @@ pub unsafe extern "C" fn EmbeddedEmulator_LoadRom(
         .from_ines_binary(|addr: usize| *rom_ref.offset(addr as isize))
 }
 
-/// CPUを1cycエミュレーションします
+/// CPUを1stepエミュレーションします
 #[no_mangle]
 pub unsafe extern "C" fn EmbeddedEmulator_EmulateCpu(
     raw_cpu_ref: &mut u8,

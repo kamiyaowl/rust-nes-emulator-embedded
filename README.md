@@ -20,7 +20,3 @@ Through this project, we are analyzing and improving performance issues.
 An improved NES Emulator written in Rust on STM32 application.
 It is expected to have better performance than the [original project](https://github.com/kamiyaowl/rust-nes-emulator#embedded-for-stm32f769) ...
 
-## `<project-root>/stm32h7`
-
-*TODO:*
-

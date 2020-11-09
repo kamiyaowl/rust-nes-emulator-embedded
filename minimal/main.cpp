@@ -3,7 +3,6 @@
 #include <functional>
 #include <map>
 #include <tuple>
-#include <thread>
 
 #include <cstdint>
 #include <cstdlib>
@@ -11,53 +10,6 @@
 #include "raylib.h"
 #include "rust_nes_emulator_embedded.h"
 
-// Shared variables
-// Assumption that ppuUncosumedCycles are placed between different CPUs where they are not affected by the cache
-uint8_t* fbBuf = NULL;
-uint8_t* cpuBuf = NULL;
-uint8_t* systemBuf = NULL;
-uint8_t* ppuBuf = NULL;
-uint32_t cpuCyc = 0;
-uint32_t ppuCyc = 0;
-CpuInterrupt interrupt = CpuInterrupt::NONE; // When rewriting from the PPU side, make sure that the rewrite is not none.
-
-// PPU thread control variables
-volatile bool isPause = true;
-volatile bool hasPaused = false;
-volatile bool isAbort = false;
-
-void runPpu(void) {
-    const uint32_t cyclePerLine = EmbeddedEmulator_GetCpuCyclePerLine();
-    while (!isAbort) {
-        // pause control
-        if (isPause) {
-            hasPaused = true;
-            continue;
-        }
-        hasPaused = false;
-
-        // Emulate ppu
-        // On the real machine, you should be able to remove the loop and emulate it indefinitely.
-        const uint32_t fetchCpuCyc = cpuCyc; // buffered
-        if (fetchCpuCyc != ppuCyc) {
-            // Even if it's overflowing, it's still calculated correctly until it goes around one round.
-            const uint32_t diffCyc = fetchCpuCyc - ppuCyc;
-            const uint32_t loopCount = diffCyc / cyclePerLine;
-            for (uint32_t i = 0; i < loopCount; i++) {
-                const CpuInterrupt irq = EmbeddedEmulator_EmulatePpu(ppuBuf, systemBuf, fbBuf, cyclePerLine);
-                // Interrupt event
-                if ((interrupt == CpuInterrupt::NONE) && (irq != CpuInterrupt::NONE)) {
-                    interrupt = irq;
-                    std::cout << "DEBUG: Interrupt " << static_cast<uint32_t>(irq) << std::endl;
-                }
-                // Update latest cyc
-                ppuCyc += cyclePerLine;
-            }
-        }
-
-    }
-    // aborted
-}
 
 int main(int argc, char* argv[])
 {
@@ -85,11 +37,11 @@ int main(int argc, char* argv[])
               << " - System : " << systemDataSize << " bytes" << std::endl
               << " - Ppu    : " << ppuDataSize << " bytes" << std::endl;
 
-    uint8_t* workBuf = new uint8_t[fbDataSize + cpuDataSize + systemDataSize + ppuDataSize];
-    fbBuf     = &workBuf[0];
-    cpuBuf    = &workBuf[fbDataSize];
-    systemBuf = &workBuf[fbDataSize + cpuDataSize];
-    ppuBuf    = &workBuf[fbDataSize + cpuDataSize + systemDataSize];
+    uint8_t* workBuf   = new uint8_t[fbDataSize + cpuDataSize + systemDataSize + ppuDataSize];
+    uint8_t* fbBuf     = &workBuf[0];
+    uint8_t* cpuBuf    = &workBuf[fbDataSize];
+    uint8_t* systemBuf = &workBuf[fbDataSize + cpuDataSize];
+    uint8_t* ppuBuf    = &workBuf[fbDataSize + cpuDataSize + systemDataSize];
 
     // Emulator initialize
     std::cout << "INFO: Init emulator" << std::endl;
@@ -162,11 +114,6 @@ int main(int argc, char* argv[])
         { KEY_D, { KeyEvent::PressRight, KeyEvent::ReleaseRight } },
     };
 
-    // Start ppu thread
-    std::cout << "INFO: Start ppu thread" << std::endl;
-    std::thread ppuThread(runPpu);
-    isPause = false;
-
     // Main game loop
     // Since there are keystrokes, the main thread should be the CPU thread.
     const uint32_t cyclePerFrame = EmbeddedEmulator_GetCpuCyclePerFrame();
@@ -184,29 +131,20 @@ int main(int argc, char* argv[])
         }
         if (IsKeyReleased(KEY_R)) {
             std::cout << "INFO: Reset" << std::endl;
-            // pause ppu thread
-            isPause = true;
-            while (!hasPaused) {
-                // wait for pause
-            }
-            // reset
             EmbeddedEmulator_Reset(cpuBuf, systemBuf, ppuBuf);
-            // resume ppu thread
-            isPause = false;
         }
 
-        // Emulate cpu
-        // On the real machine, you should be able to remove the loop and emulate it indefinitely.
+        // Emulate cpu/ppu
         for(uint32_t cycleSum = 0; cycleSum < cyclePerFrame; ) {
+            // emulate cpu
             const uint32_t cyc = EmbeddedEmulator_EmulateCpu(cpuBuf, systemBuf);
             cycleSum += cyc;
-            cpuCyc += cyc;
-        }
-        // Receive Interrupt
-        if (interrupt != CpuInterrupt::NONE) {
-            EmbeddedEmulator_InterruptCpu(cpuBuf, systemBuf, interrupt);
-            // Release interrupt lock
-            interrupt = CpuInterrupt::NONE;
+            // emulate ppu
+            const CpuInterrupt irq = EmbeddedEmulator_EmulatePpu(ppuBuf, systemBuf, fbBuf, cyc);
+            // Interrupt from ppu
+            if (irq != CpuInterrupt::NONE) {
+                EmbeddedEmulator_InterruptCpu(cpuBuf, systemBuf, irq);
+            }
         }
 
         // Draw
@@ -220,11 +158,6 @@ int main(int argc, char* argv[])
         }
         EndDrawing();
     }
-
-    // Abort ppu thread
-    std::cout << "INFO: Abort ppu thread" << std::endl;
-    isAbort = true;
-    ppuThread.join();
 
     // Finalize
     std::cout << "INFO: Finalize" << std::endl;
