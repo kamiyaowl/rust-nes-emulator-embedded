@@ -22,8 +22,8 @@ pub const EMBEDDED_EMULATOR_NUM_OF_COLOR: usize = 4;
 pub const EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH: usize = 256;
 pub const EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT: usize = 240;
 
-// 泣く泣くの策、structをそのままcに公開できなかったので
-static mut EMULATOR: Option<EmbeddedEmulator> = None;
+pub const EMBEDDED_EMULATOR_PLAYER_0: u32 = 0;
+pub const EMBEDDED_EMULATOR_PLAYER_1: u32 = 1;
 
 #[repr(u8)]
 pub enum KeyEvent {
@@ -54,16 +54,16 @@ pub enum CpuInterrupt {
     NONE,
 }
 
-/// 配列への参照を構造体への参照に変換します
-/// `raw_ref` - 構造体の参照先。 ARM向けを考慮すると、4byte alignした位置に配置されていることが望ましい
-unsafe fn get_struct_ref<T>(raw_ref: &mut u8) -> &mut T {
+/// 配列への参照を任意の型への参照に変換します
+/// `raw_ref` - 参照先。 ARM向けを考慮すると、4byte alignした位置に配置されていることが望ましい
+unsafe fn convert_ref<T>(raw_ref: &mut u8) -> &mut T {
     core::mem::transmute::<&mut u8, &mut T>(raw_ref)
 }
 
 /// 配列への参照に対し、特定の構造体とみなして初期化します
 /// `raw_ref` - 構造体の参照先。 ARM向けを考慮すると、4byte alignした位置に配置されていることが望ましい
 unsafe fn init_struct_ref<T: Default>(raw_ref: &mut u8) {
-    let data_ref = get_struct_ref::<T>(raw_ref);
+    let data_ref = convert_ref::<T>(raw_ref);
     *data_ref = T::default();
 }
 
@@ -71,6 +71,12 @@ unsafe fn init_struct_ref<T: Default>(raw_ref: &mut u8) {
 #[no_mangle]
 pub unsafe extern "C" fn EmbeddedEmulator_GetCpuCyclePerFrame() -> usize {
     CYCLE_PER_DRAW_FRAME
+}
+
+/// 1行描画するのに必要なCPU Cylceを返します
+#[no_mangle]
+pub unsafe extern "C" fn EmbeddedEmulator_GetCpuCyclePerLine() -> usize {
+    CPU_CYCLE_PER_LINE
 }
 
 /// Cpuのデータ構造に必要なサイズを返します
@@ -116,8 +122,8 @@ pub unsafe extern "C" fn EmbeddedEmulator_InterruptCpu(
     raw_system_ref: &mut u8,
     interrupt: CpuInterrupt,
 ) {
-    let cpu_ref = get_struct_ref::<Cpu>(raw_cpu_ref);
-    let system_ref = get_struct_ref::<System>(raw_system_ref);
+    let cpu_ref = convert_ref::<Cpu>(raw_cpu_ref);
+    let system_ref = convert_ref::<System>(raw_system_ref);
     let irq = match interrupt {
         CpuInterrupt::NMI => Interrupt::NMI,
         CpuInterrupt::RESET => Interrupt::RESET,
@@ -136,9 +142,9 @@ pub unsafe extern "C" fn EmbeddedEmulator_Reset(
     raw_system_ref: &mut u8,
     raw_ppu_ref: &mut u8,
 ) {
-    let cpu_ref = get_struct_ref::<Cpu>(raw_cpu_ref);
-    let system_ref = get_struct_ref::<System>(raw_system_ref);
-    let ppu_ref = get_struct_ref::<Ppu>(raw_ppu_ref);
+    let cpu_ref = convert_ref::<Cpu>(raw_cpu_ref);
+    let system_ref = convert_ref::<System>(raw_system_ref);
+    let ppu_ref = convert_ref::<Ppu>(raw_ppu_ref);
     (*cpu_ref).reset();
     (*system_ref).reset();
     (*ppu_ref).reset();
@@ -152,7 +158,7 @@ pub unsafe extern "C" fn EmbeddedEmulator_LoadRom(
     raw_system_ref: &mut u8,
     rom_ref: *const u8,
 ) -> bool {
-    let system_ref = get_struct_ref::<System>(raw_system_ref);
+    let system_ref = convert_ref::<System>(raw_system_ref);
     (*system_ref)
         .cassette
         .from_ines_binary(|addr: usize| *rom_ref.offset(addr as isize))
@@ -164,26 +170,29 @@ pub unsafe extern "C" fn EmbeddedEmulator_EmulateCpu(
     raw_cpu_ref: &mut u8,
     raw_system_ref: &mut u8,
 ) -> u8 {
-    let cpu_ref = get_struct_ref::<Cpu>(raw_cpu_ref);
-    let system_ref = get_struct_ref::<System>(raw_system_ref);
+    let cpu_ref = convert_ref::<Cpu>(raw_cpu_ref);
+    let system_ref = convert_ref::<System>(raw_system_ref);
 
     (*cpu_ref).step(&mut (*system_ref))
 }
 
-/// PPUをエミュレーションします。cpu cycを基準に進めます
+/// PPUをエミュレーションします。cpu cycを基準にlineごとに進めます
 /// `cpu_cyc`: cpuでエミュレーション経過済で、PPU側に未反映のCPU Cycle数合計
 #[no_mangle]
 pub unsafe extern "C" fn EmbeddedEmulator_EmulatePpu(
     raw_ppu_ref: &mut u8,
     raw_system_ref: &mut u8,
+    raw_fb_ref: &mut u8,
     cpu_cycle: usize,
-    fb: &mut [[[u8; EMBEDDED_EMULATOR_NUM_OF_COLOR]; EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH];
-             EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT],
 ) -> CpuInterrupt {
-    let ppu_ref = get_struct_ref::<Ppu>(raw_ppu_ref);
-    let system_ref = get_struct_ref::<System>(raw_system_ref);
+    let ppu_ref = convert_ref::<Ppu>(raw_ppu_ref);
+    let system_ref = convert_ref::<System>(raw_system_ref);
+    let fb_ref = convert_ref::<
+        [[[u8; EMBEDDED_EMULATOR_NUM_OF_COLOR]; EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH];
+            EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT],
+    >(raw_fb_ref);
 
-    match (*ppu_ref).step(cpu_cycle, &mut (*system_ref), fb) {
+    match (*ppu_ref).step(cpu_cycle, &mut (*system_ref), &mut (*fb_ref)) {
         Some(Interrupt::NMI) => CpuInterrupt::NMI,
         Some(Interrupt::RESET) => CpuInterrupt::RESET,
         Some(Interrupt::IRQ) => CpuInterrupt::IRQ,
@@ -200,7 +209,7 @@ pub unsafe extern "C" fn EmbeddedEmulator_UpdateKey(
     player_num: u32,
     key: KeyEvent,
 ) {
-    let system_ref = get_struct_ref::<System>(raw_system_ref);
+    let system_ref = convert_ref::<System>(raw_system_ref);
     let p = match player_num {
         0 => &mut (*system_ref).pad1,
         1 => &mut (*system_ref).pad2,
@@ -226,99 +235,4 @@ pub unsafe extern "C" fn EmbeddedEmulator_UpdateKey(
         KeyEvent::ReleaseLeft => p.release_button(PadButton::Left),
         KeyEvent::ReleaseRight => p.release_button(PadButton::Right),
     };
-}
-
-pub struct EmbeddedEmulator {
-    pub cpu: Cpu,
-    pub cpu_sys: System,
-    pub ppu: Ppu,
-}
-
-impl Default for EmbeddedEmulator {
-    fn default() -> Self {
-        Self {
-            cpu: Cpu::default(),
-            cpu_sys: System::default(),
-            ppu: Ppu::default(),
-        }
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn EmbeddedEmulator_init() {
-    EMULATOR = Some(EmbeddedEmulator::default());
-}
-
-/// エミュレータをリセットします
-/// カセットの中身はリセットしないので実機のリセット相当の処理です
-#[no_mangle]
-pub unsafe extern "C" fn EmbeddedEmulator_reset() {
-    if let Some(ref mut emu) = EMULATOR {
-        emu.cpu.reset();
-        emu.cpu_sys.reset();
-        emu.ppu.reset();
-        emu.cpu.interrupt(&mut emu.cpu_sys, Interrupt::RESET);
-    }
-}
-
-/// .nesファイルを読み込みます
-/// `bin_ref` - nesファイルのバイナリの先頭ポインタ
-#[no_mangle]
-pub unsafe extern "C" fn EmbeddedEmulator_load(bin_ref: *const u8) -> bool {
-    if let Some(ref mut emu) = EMULATOR {
-        let success = emu
-            .cpu_sys
-            .cassette
-            .from_ines_binary(|addr: usize| *bin_ref.offset(addr as isize));
-        if success {
-            EmbeddedEmulator_reset();
-        }
-        success
-    } else {
-        false
-    }
-}
-
-/// 描画領域1面分更新します
-#[no_mangle]
-pub unsafe extern "C" fn EmbeddedEmulator_update_screen(
-    fb: &mut [[[u8; EMBEDDED_EMULATOR_NUM_OF_COLOR]; EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH];
-             EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT],
-) {
-    if let Some(ref mut emu) = EMULATOR {
-        let mut total_cycle: usize = 0;
-        while total_cycle < CYCLE_PER_DRAW_FRAME {
-            let cpu_cycle = usize::from(emu.cpu.step(&mut emu.cpu_sys));
-            if let Some(interrupt) = emu.ppu.step(cpu_cycle, &mut emu.cpu_sys, fb) {
-                emu.cpu.interrupt(&mut emu.cpu_sys, interrupt);
-            }
-            total_cycle = total_cycle + cpu_cycle;
-        }
-    }
-}
-
-/// キー入力します
-#[no_mangle]
-pub unsafe extern "C" fn EmbeddedEmulator_update_key(key: KeyEvent) {
-    if let Some(ref mut emu) = EMULATOR {
-        match key {
-            KeyEvent::PressA => emu.cpu_sys.pad1.push_button(PadButton::A),
-            KeyEvent::PressB => emu.cpu_sys.pad1.push_button(PadButton::B),
-            KeyEvent::PressSelect => emu.cpu_sys.pad1.push_button(PadButton::Select),
-            KeyEvent::PressStart => emu.cpu_sys.pad1.push_button(PadButton::Start),
-            KeyEvent::PressUp => emu.cpu_sys.pad1.push_button(PadButton::Up),
-            KeyEvent::PressDown => emu.cpu_sys.pad1.push_button(PadButton::Down),
-            KeyEvent::PressLeft => emu.cpu_sys.pad1.push_button(PadButton::Left),
-            KeyEvent::PressRight => emu.cpu_sys.pad1.push_button(PadButton::Right),
-
-            KeyEvent::ReleaseA => emu.cpu_sys.pad1.release_button(PadButton::A),
-            KeyEvent::ReleaseB => emu.cpu_sys.pad1.release_button(PadButton::B),
-            KeyEvent::ReleaseSelect => emu.cpu_sys.pad1.release_button(PadButton::Select),
-            KeyEvent::ReleaseStart => emu.cpu_sys.pad1.release_button(PadButton::Start),
-            KeyEvent::ReleaseUp => emu.cpu_sys.pad1.release_button(PadButton::Up),
-            KeyEvent::ReleaseDown => emu.cpu_sys.pad1.release_button(PadButton::Down),
-            KeyEvent::ReleaseLeft => emu.cpu_sys.pad1.release_button(PadButton::Left),
-            KeyEvent::ReleaseRight => emu.cpu_sys.pad1.release_button(PadButton::Right),
-        }
-    }
 }

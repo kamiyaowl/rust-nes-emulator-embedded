@@ -5,6 +5,10 @@
 
 static const uintptr_t EMBEDDED_EMULATOR_NUM_OF_COLOR = 4;
 
+static const uint32_t EMBEDDED_EMULATOR_PLAYER_0 = 0;
+
+static const uint32_t EMBEDDED_EMULATOR_PLAYER_1 = 1;
+
 static const uintptr_t EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT = 240;
 
 static const uintptr_t EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH = 256;
@@ -41,15 +45,18 @@ extern "C" {
 /// CPUを1cycエミュレーションします
 uint8_t EmbeddedEmulator_EmulateCpu(uint8_t *raw_cpu_ref, uint8_t *raw_system_ref);
 
-/// PPUをエミュレーションします。cpu cycを基準に進めます
+/// PPUをエミュレーションします。cpu cycを基準にlineごとに進めます
 /// `cpu_cyc`: cpuでエミュレーション経過済で、PPU側に未反映のCPU Cycle数合計
 CpuInterrupt EmbeddedEmulator_EmulatePpu(uint8_t *raw_ppu_ref,
                                          uint8_t *raw_system_ref,
-                                         uintptr_t cpu_cycle,
-                                         uint8_t (*fb)[EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT][EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH][EMBEDDED_EMULATOR_NUM_OF_COLOR]);
+                                         uint8_t *raw_fb_ref,
+                                         uintptr_t cpu_cycle);
 
 /// 画面全体を描画するのに必要なCPU Cylceを返します
 uintptr_t EmbeddedEmulator_GetCpuCyclePerFrame();
+
+/// 1行描画するのに必要なCPU Cylceを返します
+uintptr_t EmbeddedEmulator_GetCpuCyclePerLine();
 
 /// Cpuのデータ構造に必要なサイズを返します
 uintptr_t EmbeddedEmulator_GetCpuDataSize();
@@ -86,22 +93,6 @@ void EmbeddedEmulator_Reset(uint8_t *raw_cpu_ref, uint8_t *raw_system_ref, uint8
 /// キー入力を反映
 /// `player_num` - Player番号, 0 or 1
 void EmbeddedEmulator_UpdateKey(uint8_t *raw_system_ref, uint32_t player_num, KeyEvent key);
-
-void EmbeddedEmulator_init();
-
-/// .nesファイルを読み込みます
-/// `bin_ref` - nesファイルのバイナリの先頭ポインタ
-bool EmbeddedEmulator_load(const uint8_t *bin_ref);
-
-/// エミュレータをリセットします
-/// カセットの中身はリセットしないので実機のリセット相当の処理です
-void EmbeddedEmulator_reset();
-
-/// キー入力します
-void EmbeddedEmulator_update_key(KeyEvent key);
-
-/// 描画領域1面分更新します
-void EmbeddedEmulator_update_screen(uint8_t (*fb)[EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT][EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH][EMBEDDED_EMULATOR_NUM_OF_COLOR]);
 
 void rust_eh_personality();
 
