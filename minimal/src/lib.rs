@@ -56,9 +56,8 @@ pub enum CpuInterrupt {
 
 #[repr(u8)]
 pub enum DrawPioxelFormat {
-    RGB888,
-    ARGB8888,
     RGBA8888,
+    ARGB8888,
 }
 
 /// 配列への参照を任意の型への参照に変換します
@@ -135,7 +134,6 @@ pub unsafe extern "C" fn EmbeddedEmulator_SetPpuDrawOption(
 ) {
     let ppu_ref = convert_ref::<Ppu>(raw_ppu_ref);
     let pixel_format = match draw_pixel_format {
-        DrawPioxelFormat::RGB888 => PixelFormat::RGB888,
         DrawPioxelFormat::ARGB8888 => PixelFormat::ARGB8888,
         DrawPioxelFormat::RGBA8888 => PixelFormat::RGBA8888,
     };

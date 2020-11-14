@@ -22,7 +22,7 @@ int main(int argc, char* argv[])
         return 0;
     }
     const char* romPath = argv[1];
-    const uint32_t scale = (argc > 2) ? std::stoi(argv[2]) : 4;
+    const uint32_t scale = (argc > 2) ? std::stoi(argv[2]) : 2;
     const uint32_t fps  = (argc > 3) ? std::stoi(argv[3]) : 60;
 
     const uint32_t offsetX = 0;
@@ -31,7 +31,7 @@ int main(int argc, char* argv[])
     const uint32_t screenHeight = EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT * scale;
 
     // Allocate workarea
-    // In this application, there is no constraint on allocate, so allocate a contiguous area
+    // In this application, there is no constraint on allocate, so allocate a continuous area
     const uint32_t fbDataSize     = screenWidth * screenHeight * EMBEDDED_EMULATOR_NUM_OF_COLOR;
     const uint32_t cpuDataSize    = EmbeddedEmulator_GetCpuDataSize();
     const uint32_t systemDataSize = EmbeddedEmulator_GetSystemDataSize();

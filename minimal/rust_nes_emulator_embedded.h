@@ -22,9 +22,8 @@ enum class CpuInterrupt : uint8_t {
 };
 
 enum class DrawPioxelFormat : uint8_t {
-  RGB888,
-  ARGB8888,
   RGBA8888,
+  ARGB8888,
 };
 
 enum class KeyEvent : uint8_t {
