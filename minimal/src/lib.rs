@@ -54,6 +54,13 @@ pub enum CpuInterrupt {
     NONE,
 }
 
+#[repr(u8)]
+pub enum DrawPioxelFormat {
+    RGB888,
+    ARGB8888,
+    RGBA8888,
+}
+
 /// 配列への参照を任意の型への参照に変換します
 /// `raw_ref` - 参照先。 ARM向けを考慮すると、4byte alignした位置に配置されていることが望ましい
 unsafe fn convert_ref<T>(raw_ref: &mut u8) -> &mut T {
@@ -113,6 +120,29 @@ pub unsafe extern "C" fn EmbeddedEmulator_InitSystem(raw_ref: &mut u8) {
 #[no_mangle]
 pub unsafe extern "C" fn EmbeddedEmulator_InitPpu(raw_ref: &mut u8) {
     init_struct_ref::<Ppu>(raw_ref);
+}
+
+/// Ppuの描画設定を更新します
+#[no_mangle]
+pub unsafe extern "C" fn EmbeddedEmulator_SetPpuDrawOption(
+    raw_ppu_ref: &mut u8,
+    fb_width: u32,
+    fb_height: u32,
+    offset_x: u32,
+    offset_y: u32,
+    draw_pixel_format: DrawPioxelFormat,
+) {
+    let ppu_ref = convert_ref::<Ppu>(raw_ppu_ref);
+    let pixel_format = match draw_pixel_format {
+        DrawPioxelFormat::RGB888 => PixelFormat::RGB888,
+        DrawPioxelFormat::ARGB8888 => PixelFormat::ARGB8888,
+        DrawPioxelFormat::RGBA8888 => PixelFormat::RGBA8888,
+    };
+    (*ppu_ref).draw_option.fb_width = fb_width;
+    (*ppu_ref).draw_option.fb_height = fb_height;
+    (*ppu_ref).draw_option.offset_x = offset_x;
+    (*ppu_ref).draw_option.offset_y = offset_y;
+    (*ppu_ref).draw_option.pixel_format = pixel_format;
 }
 
 /// CPUに特定の割り込みを送信します

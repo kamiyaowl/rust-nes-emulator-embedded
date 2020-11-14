@@ -180,6 +180,39 @@ impl LineStatus {
     }
 }
 
+#[derive(Copy, Clone)]
+pub enum PixelFormat {
+    RGB888,
+    ARGB8888,
+    RGBA8888,
+}
+
+#[derive(Copy, Clone)]
+pub struct DrawOption {
+    /// Frame Buffer全体の幅
+    pub fb_width: u32,
+    /// Frame Buffer全体の高さ
+    pub fb_height: u32,
+    /// PPUのデータを書き出す左上座標
+    pub offset_x: u32,
+    /// PPUのデータを書き出す左上座標
+    pub offset_y: u32,
+    /// Frame Bufferの色設定
+    pub pixel_format: PixelFormat,
+}
+
+impl Default for DrawOption {
+    fn default() -> Self {
+        Self {
+            fb_width: VISIBLE_SCREEN_WIDTH as u32,
+            fb_height: VISIBLE_SCREEN_HEIGHT as u32,
+            offset_x: 0,
+            offset_y: 0,
+            pixel_format: PixelFormat::RGB888,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Ppu {
     /// Object Attribute Memoryの実態
@@ -206,6 +239,9 @@ pub struct Ppu {
     pub dma_cpu_src_addr: u16,
     /// DMAのOAM側のベースアドレス。256byteしたらwrapする(あまり使われないらしい)
     pub dma_oam_dst_addr: u8,
+
+    /// PPUの描画設定(step時に渡したかったが、毎回渡すのも無駄なので)
+    pub draw_option: DrawOption,
 }
 
 impl Default for Ppu {
@@ -225,6 +261,8 @@ impl Default for Ppu {
             is_dma_running: false,
             dma_cpu_src_addr: 0,
             dma_oam_dst_addr: 0,
+
+            draw_option: DrawOption::default(),
         }
     }
 }
