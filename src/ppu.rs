@@ -455,7 +455,7 @@ impl Ppu {
                 let draw_y = draw_base_y + (scale_y as i32);
 
                 // Y座標がFrameBuffer範囲外
-                if (draw_y < 0) || ((self.draw_option.fb_width as i32) <= draw_y) {
+                if (draw_y < 0) || ((self.draw_option.fb_height as i32) <= draw_y) {
                     continue;
                 }
 
