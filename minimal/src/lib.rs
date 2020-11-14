@@ -127,8 +127,8 @@ pub unsafe extern "C" fn EmbeddedEmulator_SetPpuDrawOption(
     raw_ppu_ref: &mut u8,
     fb_width: u32,
     fb_height: u32,
-    offset_x: u32,
-    offset_y: u32,
+    offset_x: i32,
+    offset_y: i32,
     scale: u32,
     draw_pixel_format: DrawPioxelFormat,
 ) {
@@ -212,17 +212,13 @@ pub unsafe extern "C" fn EmbeddedEmulator_EmulateCpu(
 pub unsafe extern "C" fn EmbeddedEmulator_EmulatePpu(
     raw_ppu_ref: &mut u8,
     raw_system_ref: &mut u8,
-    raw_fb_ref: &mut u8,
+    fb_ptr: *mut u8,
     cpu_cycle: usize,
 ) -> CpuInterrupt {
     let ppu_ref = convert_ref::<Ppu>(raw_ppu_ref);
     let system_ref = convert_ref::<System>(raw_system_ref);
-    let fb_ref = convert_ref::<
-        [[[u8; EMBEDDED_EMULATOR_NUM_OF_COLOR]; EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH];
-            EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT],
-    >(raw_fb_ref);
 
-    match (*ppu_ref).step(cpu_cycle, &mut (*system_ref), &mut (*fb_ref)) {
+    match (*ppu_ref).step(cpu_cycle, &mut (*system_ref), fb_ptr) {
         Some(Interrupt::NMI) => CpuInterrupt::NMI,
         Some(Interrupt::RESET) => CpuInterrupt::RESET,
         Some(Interrupt::IRQ) => CpuInterrupt::IRQ,

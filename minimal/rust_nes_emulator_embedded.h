@@ -54,7 +54,7 @@ uint8_t EmbeddedEmulator_EmulateCpu(uint8_t *raw_cpu_ref, uint8_t *raw_system_re
 /// `cpu_cyc`: cpuでエミュレーション経過済で、PPU側に未反映のCPU Cycle数合計
 CpuInterrupt EmbeddedEmulator_EmulatePpu(uint8_t *raw_ppu_ref,
                                          uint8_t *raw_system_ref,
-                                         uint8_t *raw_fb_ref,
+                                         uint8_t *fb_ptr,
                                          uintptr_t cpu_cycle);
 
 /// 画面全体を描画するのに必要なCPU Cylceを返します
@@ -99,8 +99,8 @@ void EmbeddedEmulator_Reset(uint8_t *raw_cpu_ref, uint8_t *raw_system_ref, uint8
 void EmbeddedEmulator_SetPpuDrawOption(uint8_t *raw_ppu_ref,
                                        uint32_t fb_width,
                                        uint32_t fb_height,
-                                       uint32_t offset_x,
-                                       uint32_t offset_y,
+                                       int32_t offset_x,
+                                       int32_t offset_y,
                                        uint32_t scale,
                                        DrawPioxelFormat draw_pixel_format);
 

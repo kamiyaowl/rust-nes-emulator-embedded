@@ -182,9 +182,8 @@ impl LineStatus {
 
 #[derive(Copy, Clone)]
 pub enum PixelFormat {
-    RGB888,
-    ARGB8888,
     RGBA8888,
+    ARGB8888,
 }
 
 #[derive(Copy, Clone)]
@@ -194,9 +193,9 @@ pub struct DrawOption {
     /// Frame Buffer全体の高さ
     pub fb_height: u32,
     /// PPUのデータを書き出す左上座標
-    pub offset_x: u32,
+    pub offset_x: i32,
     /// PPUのデータを書き出す左上座標
-    pub offset_y: u32,
+    pub offset_y: i32,
     /// PPU 1dotをFrameBufferのpixel数に換算する
     pub scale: u32,
     /// Frame Bufferの色設定
@@ -211,7 +210,7 @@ impl Default for DrawOption {
             offset_x: 0,
             offset_y: 0,
             scale: 1,
-            pixel_format: PixelFormat::RGB888,
+            pixel_format: PixelFormat::RGBA8888,
         }
     }
 }
@@ -325,17 +324,14 @@ impl Ppu {
         // ステータス更新
         self.is_dma_running = is_pre_transfer;
     }
+
     /// 1行書きます
     ///
     /// `tile_base`   - スクロールオフセット加算なしの現在のタイル位置
     /// `tile_global` - スクロールオフセット換算した、4面含めた上でのタイル位置
     /// `tile_local`  - `tile_global`を1Namespace上のタイルでの位置に変換したもの
     /// scrollなしなら上記はすべて一致するはず
-    fn draw_line(
-        &mut self,
-        system: &mut System,
-        fb: &mut [[[u8; NUM_OF_COLOR]; VISIBLE_SCREEN_WIDTH]; VISIBLE_SCREEN_HEIGHT],
-    ) {
+    fn draw_line(&mut self, system: &mut System, fb: *mut u8) {
         // ループ内で何度も呼び出すとパフォーマンスが下がる
         let nametable_base_addr = system.read_ppu_name_table_base_addr();
         let pattern_table_addr = system.read_ppu_bg_pattern_table_addr();
@@ -441,24 +437,65 @@ impl Ppu {
                     break 'select_color;
                 }
             }
-            // データをFBに反映
-            fb[pixel_y][pixel_x][0] = draw_color.0;
-            fb[pixel_y][pixel_x][1] = draw_color.1;
-            fb[pixel_y][pixel_x][2] = draw_color.2;
-            fb[pixel_y][pixel_x][3] = 0xff; // alpha blending
+            // pixel formatの決定
+            let pixel_indexes = match self.draw_option.pixel_format {
+                PixelFormat::RGBA8888 => (0, 1, 2, 3),
+                PixelFormat::ARGB8888 => (1, 2, 3, 0),
+            };
+            // 座標計算, 1dotをscale**2 pixelに反映する必要がある
+            for scale_y in 0..self.draw_option.scale {
+                // Y座標を計算
+                let draw_y = self.draw_option.offset_y
+                    + (pixel_y as i32) * (self.draw_option.scale as i32)
+                    + (scale_y as i32);
 
-            // モノクロ出力対応(とりあえず総加平均...)
-            if is_monochrome {
-                let data = ((u16::from(fb[pixel_y][pixel_x][0])
-                    + u16::from(fb[pixel_y][pixel_x][1])
-                    + u16::from(fb[pixel_y][pixel_x][2]))
-                    / 3) as u8;
-                fb[pixel_y][pixel_x][0] = data;
-                fb[pixel_y][pixel_x][1] = data;
-                fb[pixel_y][pixel_x][2] = data;
+                // Y座標がFrameBuffer範囲外
+                if (draw_y < 0) || ((self.draw_option.fb_width as i32) <= draw_y) {
+                    continue;
+                }
+
+                for scale_x in 0..self.draw_option.scale {
+                    // X位置を求める
+                    let draw_x = self.draw_option.offset_x
+                        + (pixel_x as i32) * (self.draw_option.scale as i32)
+                        + (scale_x as i32);
+
+                    // X座標がFrameBuffer範囲外
+                    if (draw_x < 0) || ((self.draw_option.fb_width as i32) <= draw_x) {
+                        continue;
+                    }
+
+                    // FrameBufferのサイズから、相当する座標を計算
+                    // Y位置に相当するindex計算時の幅は256ではなくFrameBufferの幅を使う
+                    let base_index = ((draw_y as usize) * (self.draw_option.fb_width as usize)
+                        + (draw_x as usize))
+                        * NUM_OF_COLOR;
+
+                    unsafe {
+                        let base_ptr = fb.offset(base_index as isize);
+
+                        // データをFBに反映
+                        *base_ptr.offset(pixel_indexes.0) = draw_color.0; // R
+                        *base_ptr.offset(pixel_indexes.1) = draw_color.1; // G
+                        *base_ptr.offset(pixel_indexes.2) = draw_color.2; // B
+                        *base_ptr.offset(pixel_indexes.3) = 0xff; // alpha blending
+
+                        // モノクロ出力対応(とりあえず総加平均...)
+                        if is_monochrome {
+                            let data = ((u16::from(*base_ptr.offset(pixel_indexes.0))
+                                + u16::from(*base_ptr.offset(pixel_indexes.1))
+                                + u16::from(*base_ptr.offset(pixel_indexes.2)))
+                                / 3) as u8;
+                            *base_ptr.offset(pixel_indexes.0) = data;
+                            *base_ptr.offset(pixel_indexes.1) = data;
+                            *base_ptr.offset(pixel_indexes.2) = data;
+                        }
+                    }
+                }
             }
         }
     }
+
     /// 指定されたpixelにあるスプライトを描画します
     /// `pixel_x` - 描画対象の表示するリーンにおけるx座標
     /// `pixel_y` - 描画対象の表示するリーンにおけるy座標
@@ -619,11 +656,7 @@ impl Ppu {
 
     /// 1行ごとに色々更新する処理です
     /// 341cyc溜まったときに呼び出されることを期待
-    fn update_line(
-        &mut self,
-        system: &mut System,
-        fb: &mut [[[u8; NUM_OF_COLOR]; VISIBLE_SCREEN_WIDTH]; VISIBLE_SCREEN_HEIGHT],
-    ) -> Option<Interrupt> {
+    fn update_line(&mut self, system: &mut System, fb: *mut u8) -> Option<Interrupt> {
         // scroll更新
         self.current_scroll_x = self.fetch_scroll_x;
         self.current_scroll_y = self.fetch_scroll_y;
@@ -687,12 +720,7 @@ impl Ppu {
     /// `system` - レジスタ読み書きする
     /// `video_system` - レジスタ読み書きする
     /// `videoout_func` - pixelごとのデータが決まるごとに呼ぶ(NESは出力ダブルバッファとかない)
-    pub fn step(
-        &mut self,
-        cpu_cyc: usize,
-        system: &mut System,
-        fb: &mut [[[u8; NUM_OF_COLOR]; VISIBLE_SCREEN_WIDTH]; VISIBLE_SCREEN_HEIGHT],
-    ) -> Option<Interrupt> {
+    pub fn step(&mut self, cpu_cyc: usize, system: &mut System, fb: *mut u8) -> Option<Interrupt> {
         // PPU_SCROLL書き込み
         let (_, scroll_x, scroll_y) = system.read_ppu_scroll();
         self.fetch_scroll_x = scroll_x;
