@@ -352,6 +352,12 @@ impl Ppu {
                                                                // 4面ある内、下側に差し掛かっていたらfalse
         let is_nametable_position_top = tile_global_y < SCREEN_TILE_HEIGHT;
 
+        // pixel formatの決定
+        let pixel_indexes = match self.draw_option.pixel_format {
+            PixelFormat::RGBA8888 => (0, 1, 2, 3),
+            PixelFormat::ARGB8888 => (1, 2, 3, 0),
+        };
+
         // 描画座標系でループさせる
         let pixel_y = usize::from(self.current_line);
         for pixel_x in 0..VISIBLE_SCREEN_WIDTH {
@@ -437,17 +443,16 @@ impl Ppu {
                     break 'select_color;
                 }
             }
-            // pixel formatの決定
-            let pixel_indexes = match self.draw_option.pixel_format {
-                PixelFormat::RGBA8888 => (0, 1, 2, 3),
-                PixelFormat::ARGB8888 => (1, 2, 3, 0),
-            };
+
+            // 毎回計算する必要のないものを事前計算
+            let draw_base_y =
+                self.draw_option.offset_y + (pixel_y as i32) * (self.draw_option.scale as i32);
+            let draw_base_x =
+                self.draw_option.offset_x + (pixel_x as i32) * (self.draw_option.scale as i32);
             // 座標計算, 1dotをscale**2 pixelに反映する必要がある
             for scale_y in 0..self.draw_option.scale {
                 // Y座標を計算
-                let draw_y = self.draw_option.offset_y
-                    + (pixel_y as i32) * (self.draw_option.scale as i32)
-                    + (scale_y as i32);
+                let draw_y = draw_base_y + (scale_y as i32);
 
                 // Y座標がFrameBuffer範囲外
                 if (draw_y < 0) || ((self.draw_option.fb_width as i32) <= draw_y) {
@@ -456,9 +461,7 @@ impl Ppu {
 
                 for scale_x in 0..self.draw_option.scale {
                     // X位置を求める
-                    let draw_x = self.draw_option.offset_x
-                        + (pixel_x as i32) * (self.draw_option.scale as i32)
-                        + (scale_x as i32);
+                    let draw_x = draw_base_x + (scale_x as i32);
 
                     // X座標がFrameBuffer範囲外
                     if (draw_x < 0) || ((self.draw_option.fb_width as i32) <= draw_x) {
@@ -467,12 +470,12 @@ impl Ppu {
 
                     // FrameBufferのサイズから、相当する座標を計算
                     // Y位置に相当するindex計算時の幅は256ではなくFrameBufferの幅を使う
-                    let base_index = ((draw_y as usize) * (self.draw_option.fb_width as usize)
-                        + (draw_x as usize))
-                        * NUM_OF_COLOR;
+                    let base_index = ((draw_y as isize) * (self.draw_option.fb_width as isize)
+                        + (draw_x as isize))
+                        * (NUM_OF_COLOR as isize);
 
                     unsafe {
-                        let base_ptr = fb.offset(base_index as isize);
+                        let base_ptr = fb.offset(base_index);
 
                         // データをFBに反映
                         *base_ptr.offset(pixel_indexes.0) = draw_color.0; // R

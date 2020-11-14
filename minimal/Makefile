@@ -276,7 +276,7 @@ SRC = $(call rwildcard, *.c, *.h)
 OBJS ?= main.cpp
 # Define command line args
 ARG = ../roms/other/hello.nes
-# ARG = ../roms/my_dump/mario.nes
+# ARG = ../roms/my_dump/mario.nes 2 0
 
 # Default target entry
 .PHONY: build
