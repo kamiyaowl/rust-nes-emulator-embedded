@@ -54,6 +54,12 @@ pub enum CpuInterrupt {
     NONE,
 }
 
+#[repr(u8)]
+pub enum DrawPioxelFormat {
+    RGBA8888,
+    ARGB8888,
+}
+
 /// 配列への参照を任意の型への参照に変換します
 /// `raw_ref` - 参照先。 ARM向けを考慮すると、4byte alignした位置に配置されていることが望ましい
 unsafe fn convert_ref<T>(raw_ref: &mut u8) -> &mut T {
@@ -113,6 +119,30 @@ pub unsafe extern "C" fn EmbeddedEmulator_InitSystem(raw_ref: &mut u8) {
 #[no_mangle]
 pub unsafe extern "C" fn EmbeddedEmulator_InitPpu(raw_ref: &mut u8) {
     init_struct_ref::<Ppu>(raw_ref);
+}
+
+/// Ppuの描画設定を更新します
+#[no_mangle]
+pub unsafe extern "C" fn EmbeddedEmulator_SetPpuDrawOption(
+    raw_ppu_ref: &mut u8,
+    fb_width: u32,
+    fb_height: u32,
+    offset_x: i32,
+    offset_y: i32,
+    scale: u32,
+    draw_pixel_format: DrawPioxelFormat,
+) {
+    let ppu_ref = convert_ref::<Ppu>(raw_ppu_ref);
+    let pixel_format = match draw_pixel_format {
+        DrawPioxelFormat::ARGB8888 => PixelFormat::ARGB8888,
+        DrawPioxelFormat::RGBA8888 => PixelFormat::RGBA8888,
+    };
+    (*ppu_ref).draw_option.fb_width = fb_width;
+    (*ppu_ref).draw_option.fb_height = fb_height;
+    (*ppu_ref).draw_option.offset_x = offset_x;
+    (*ppu_ref).draw_option.offset_y = offset_y;
+    (*ppu_ref).draw_option.scale = scale;
+    (*ppu_ref).draw_option.pixel_format = pixel_format;
 }
 
 /// CPUに特定の割り込みを送信します
@@ -182,17 +212,13 @@ pub unsafe extern "C" fn EmbeddedEmulator_EmulateCpu(
 pub unsafe extern "C" fn EmbeddedEmulator_EmulatePpu(
     raw_ppu_ref: &mut u8,
     raw_system_ref: &mut u8,
-    raw_fb_ref: &mut u8,
+    fb_ptr: *mut u8,
     cpu_cycle: usize,
 ) -> CpuInterrupt {
     let ppu_ref = convert_ref::<Ppu>(raw_ppu_ref);
     let system_ref = convert_ref::<System>(raw_system_ref);
-    let fb_ref = convert_ref::<
-        [[[u8; EMBEDDED_EMULATOR_NUM_OF_COLOR]; EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH];
-            EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT],
-    >(raw_fb_ref);
 
-    match (*ppu_ref).step(cpu_cycle, &mut (*system_ref), &mut (*fb_ref)) {
+    match (*ppu_ref).step(cpu_cycle, &mut (*system_ref), fb_ptr) {
         Some(Interrupt::NMI) => CpuInterrupt::NMI,
         Some(Interrupt::RESET) => CpuInterrupt::RESET,
         Some(Interrupt::IRQ) => CpuInterrupt::IRQ,

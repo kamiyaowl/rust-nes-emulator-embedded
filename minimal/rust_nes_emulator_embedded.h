@@ -21,6 +21,11 @@ enum class CpuInterrupt : uint8_t {
   NONE,
 };
 
+enum class DrawPioxelFormat : uint8_t {
+  RGBA8888,
+  ARGB8888,
+};
+
 enum class KeyEvent : uint8_t {
   PressA,
   PressB,
@@ -49,7 +54,7 @@ uint8_t EmbeddedEmulator_EmulateCpu(uint8_t *raw_cpu_ref, uint8_t *raw_system_re
 /// `cpu_cyc`: cpuでエミュレーション経過済で、PPU側に未反映のCPU Cycle数合計
 CpuInterrupt EmbeddedEmulator_EmulatePpu(uint8_t *raw_ppu_ref,
                                          uint8_t *raw_system_ref,
-                                         uint8_t *raw_fb_ref,
+                                         uint8_t *fb_ptr,
                                          uintptr_t cpu_cycle);
 
 /// 画面全体を描画するのに必要なCPU Cylceを返します
@@ -89,6 +94,15 @@ bool EmbeddedEmulator_LoadRom(uint8_t *raw_system_ref,
 /// エミュレータをリセットします
 /// 各種変数の初期化後、RESET割り込みが行われます
 void EmbeddedEmulator_Reset(uint8_t *raw_cpu_ref, uint8_t *raw_system_ref, uint8_t *raw_ppu_ref);
+
+/// Ppuの描画設定を更新します
+void EmbeddedEmulator_SetPpuDrawOption(uint8_t *raw_ppu_ref,
+                                       uint32_t fb_width,
+                                       uint32_t fb_height,
+                                       int32_t offset_x,
+                                       int32_t offset_y,
+                                       uint32_t scale,
+                                       DrawPioxelFormat draw_pixel_format);
 
 /// キー入力を反映
 /// `player_num` - Player番号, 0 or 1
