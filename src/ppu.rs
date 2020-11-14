@@ -197,6 +197,8 @@ pub struct DrawOption {
     pub offset_x: u32,
     /// PPUのデータを書き出す左上座標
     pub offset_y: u32,
+    /// PPU 1dotをFrameBufferのpixel数に換算する
+    pub scale: u32,
     /// Frame Bufferの色設定
     pub pixel_format: PixelFormat,
 }
@@ -208,6 +210,7 @@ impl Default for DrawOption {
             fb_height: VISIBLE_SCREEN_HEIGHT as u32,
             offset_x: 0,
             offset_y: 0,
+            scale: 1,
             pixel_format: PixelFormat::RGB888,
         }
     }

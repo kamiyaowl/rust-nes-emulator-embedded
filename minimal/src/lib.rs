@@ -130,6 +130,7 @@ pub unsafe extern "C" fn EmbeddedEmulator_SetPpuDrawOption(
     fb_height: u32,
     offset_x: u32,
     offset_y: u32,
+    scale: u32,
     draw_pixel_format: DrawPioxelFormat,
 ) {
     let ppu_ref = convert_ref::<Ppu>(raw_ppu_ref);
@@ -142,6 +143,7 @@ pub unsafe extern "C" fn EmbeddedEmulator_SetPpuDrawOption(
     (*ppu_ref).draw_option.fb_height = fb_height;
     (*ppu_ref).draw_option.offset_x = offset_x;
     (*ppu_ref).draw_option.offset_y = offset_y;
+    (*ppu_ref).draw_option.scale = scale;
     (*ppu_ref).draw_option.pixel_format = pixel_format;
 }
 

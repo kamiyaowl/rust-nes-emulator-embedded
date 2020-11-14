@@ -102,6 +102,7 @@ void EmbeddedEmulator_SetPpuDrawOption(uint8_t *raw_ppu_ref,
                                        uint32_t fb_height,
                                        uint32_t offset_x,
                                        uint32_t offset_y,
+                                       uint32_t scale,
                                        DrawPioxelFormat draw_pixel_format);
 
 /// キー入力を反映

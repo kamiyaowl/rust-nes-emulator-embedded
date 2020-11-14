@@ -22,12 +22,17 @@ int main(int argc, char* argv[])
         return 0;
     }
     const char* romPath = argv[1];
-    const float scale   = (argc > 2) ? std::stof(argv[2]) : 2.0;
+    const uint32_t scale = (argc > 2) ? std::stoi(argv[2]) : 4;
     const uint32_t fps  = (argc > 3) ? std::stoi(argv[3]) : 60;
+
+    const uint32_t offsetX = 0;
+    const uint32_t offsetY = 0;
+    const uint32_t screenWidth  = EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH * scale;
+    const uint32_t screenHeight = EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT * scale;
 
     // Allocate workarea
     // In this application, there is no constraint on allocate, so allocate a contiguous area
-    const uint32_t fbDataSize     = EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH * EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT * EMBEDDED_EMULATOR_NUM_OF_COLOR;
+    const uint32_t fbDataSize     = screenWidth * screenHeight * EMBEDDED_EMULATOR_NUM_OF_COLOR;
     const uint32_t cpuDataSize    = EmbeddedEmulator_GetCpuDataSize();
     const uint32_t systemDataSize = EmbeddedEmulator_GetSystemDataSize();
     const uint32_t ppuDataSize    = EmbeddedEmulator_GetPpuDataSize();
@@ -48,6 +53,7 @@ int main(int argc, char* argv[])
     EmbeddedEmulator_InitCpu(cpuBuf);
     EmbeddedEmulator_InitSystem(systemBuf);
     EmbeddedEmulator_InitPpu(ppuBuf);
+    EmbeddedEmulator_SetPpuDrawOption(ppuBuf, screenWidth, screenHeight, offsetX, offsetY, scale, DrawPioxelFormat::RGBA8888);
 
     // Open rom file
     std::cout << "INFO: Load rom binary '" << romPath << "'" << std::endl;
@@ -89,9 +95,6 @@ int main(int argc, char* argv[])
     EmbeddedEmulator_Reset(cpuBuf, systemBuf, ppuBuf);
 
     // Screen Initialize
-    const uint32_t screenWidth  = static_cast<int>(EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH * scale);
-    const uint32_t screenHeight = static_cast<int>(EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT * scale);
-
     std::cout << "INFO: Init window" << std::endl;
     InitWindow(screenWidth, screenHeight, "rust-nes-emulator-embedded");
     if (fps > 0) {
@@ -99,7 +102,7 @@ int main(int argc, char* argv[])
     }
 
     // FrameBuffer Image
-    Image fbImg = { fbBuf, EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH, EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH, 1, UNCOMPRESSED_R8G8B8A8 };
+    Image fbImg = { fbBuf, static_cast<int>(screenWidth), static_cast<int>(screenHeight), 1, UNCOMPRESSED_R8G8B8A8 };
     Texture2D fbTexture = LoadTextureFromImage(fbImg);
 
     // Key mapping
@@ -153,7 +156,10 @@ int main(int argc, char* argv[])
 
         BeginDrawing();
         {
-            DrawTextureEx(fbTexture, Vector2{ 0, 0 }, 0, scale, WHITE);
+            // The scale of the image is newly implemented on the Rust side.
+            // DrawTextureEx(fbTexture, Vector2{ 0, 0 }, 0, scale, WHITE);
+            DrawTextureEx(fbTexture, Vector2{ 0, 0 }, 0, 1, WHITE);
+
             DrawFPS(10, 10);
         }
         EndDrawing();
