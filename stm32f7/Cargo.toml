@@ -1,5 +1,5 @@
 [package]
-name = "rust-nes-emulator-embedded"
+name = "rust-nes-emulator-stm32f7"
 version = "0.1.0"
 authors = ["K <kamiyaowl@gmail.com>"]
 edition = "2018"
@@ -15,7 +15,7 @@ cbindgen = "0.9.1"
 
 [lib]
 path = "src/lib.rs"
-name = "rust_nes_emulator_embedded"
+name = "rust_nes_emulator"
 crate-type = ["staticlib"]
 
 [profile.dev]

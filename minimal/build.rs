@@ -9,5 +9,5 @@ fn main() {
         .with_crate(crate_dir)
         .generate()
         .expect("Unable to generate bindings")
-        .write_to_file("rust_nes_emulator_embedded.h");
+        .write_to_file("rust_nes_emulator.h");
 }

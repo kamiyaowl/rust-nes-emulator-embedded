@@ -208,7 +208,7 @@ INCLUDE_PATHS += -I../mbed/hal
 INCLUDE_PATHS += -I../mbed/platform
 
 LIBRARY_PATHS := -L../mbed/TARGET_DISCO_F769NI/TOOLCHAIN_GCC_ARM -L../target/thumbv7em-none-eabi/release/
-LIBRARIES := -lmbed -lrust_nes_emulator_embedded
+LIBRARIES := -lmbed -lrust_nes_emulator
 LINKER_SCRIPT ?= ../mbed/TARGET_DISCO_F769NI/TOOLCHAIN_GCC_ARM/STM32F769xI.ld
 
 # Objects and Paths

@@ -13,7 +13,7 @@
 #include "core_cm7.h"
 
 // for emulator
-#include "rust_nes_emulator_embedded.h"
+#include "rust_nes_emulator.h"
 
 
 // typedef uint8_t (*FrameBuffer_t)[EMBEDDED_EMULATOR_VISIBLE_SCREEN_HEIGHT][EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH][EMBEDDED_EMULATOR_NUM_OF_COLOR];

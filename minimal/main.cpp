@@ -8,7 +8,7 @@
 #include <cstdlib>
 
 #include "raylib.h"
-#include "rust_nes_emulator_embedded.h"
+#include "rust_nes_emulator.h"
 
 
 int main(int argc, char* argv[])
