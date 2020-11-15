@@ -2,6 +2,12 @@
 # see http://mbed.org/handbook/Exporting-to-GCC-ARM-Embedded
 
 ###############################################################################
+# Rust
+
+CARGO      = rustup run nightly cargo
+CARGOFLAGS = --release
+
+###############################################################################
 # Boiler-plate
 
 # cross-platform directory manipulation
@@ -28,6 +34,7 @@ $(OBJDIR): all
 Makefile : ;
 % :: $(OBJDIR) ; :
 clean :
+	$(CARGO) clean
 	$(call RM,$(OBJDIR))
 
 else
@@ -221,7 +228,6 @@ CPP     = arm-none-eabi-g++
 LD      = arm-none-eabi-gcc
 ELF2BIN = arm-none-eabi-objcopy
 PREPROC = arm-none-eabi-cpp -E -P -Wl,--gc-sections -Wl,--wrap,main -Wl,--wrap,_malloc_r -Wl,--wrap,_free_r -Wl,--wrap,_realloc_r -Wl,--wrap,_memalign_r -Wl,--wrap,_calloc_r -Wl,--wrap,exit -Wl,--wrap,atexit -Wl,-n -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=softfp
-
 
 C_FLAGS += -std=gnu11
 C_FLAGS += -include
@@ -479,6 +485,8 @@ $(PROJECT).link_script.ld: $(LINKER_SCRIPT)
 
 
 $(PROJECT).elf: $(OBJECTS) $(SYS_OBJECTS) $(PROJECT).link_script.ld 
+	+@echo "build rust-lib"
+	+@$(CARGO) build $(CARGOFLAGS)
 	+@echo "$(filter %.o, $^)" > .link_options.txt
 	+@echo "link: $(notdir $@)"
 	@$(LD) $(LD_FLAGS) -T $(filter-out %.o, $^) $(LIBRARY_PATHS) --output $@ @.link_options.txt $(LIBRARIES) $(LD_SYS_LIBS)
