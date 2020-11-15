@@ -15,10 +15,16 @@
 // for emulator
 #include "rust_nes_emulator.h"
 
+// EMU_WORK on DTCM 64K
+#define EMU_WORK_SIZE (64*1024) // 64K
+static uint8_t emuWorkBuffer[EMU_WORK_SIZE];// __attribute__((section(".emu_work")));
+
 // user specified values
 #define PRINT_MESSAGE_HEIGHT (20)
 #define SDRAM_BASE_ADDR      (SDRAM_DEVICE_ADDR)
 #define SDRAM_SIZE           (SDRAM_DEVICE_SIZE)
+#define DISPLAY_WIDTH        (OTM8009A_800X480_WIDTH)  // 800
+#define DISPLAY_HEIGHT       (OTM8009A_800X480_HEIGHT) // 480
 
 void initSystem(void) {
     // Enabled I/D Cache, Prefetch Buffer
@@ -51,33 +57,40 @@ bool initSd(void) {
     return (BSP_SD_Init() == MSD_OK);
 }
 int main(void) {
+    char msg[64];
     uint32_t messageLine = 0;
-    // Init processor 
+
+    // Init core peripheral
     initSystem();
-
-    // Init LCD and show message
     initLcd();
-    BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"kamiyaowl/rust-nes-emulator-embedded", LEFT_MODE);
 
-    // Init peripherals
-    BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"[INFO] Init SDRAM", LEFT_MODE);
+    // Print startup info
+    BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"kamiyaowl/rust-nes-emulator-embedded", LEFT_MODE);
+    sprintf(msg, "[DEBUG] SystemCoreClock: %ld MHz", SystemCoreClock / 1000000ul);
+    BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)msg, LEFT_MODE);
+    sprintf(msg, "[DEBUG] emuWorkbufferAddr: %08x", emuWorkBuffer);
+    BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)msg, LEFT_MODE);
+
+    // Init other peripherals
+    BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"[INFO ] Init SDRAM", LEFT_MODE);
     if(!initSdram()) {
         BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"[ERROR] FAILED", LEFT_MODE);
         while(1);
     }
 
-    BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"[INFO] Init Touchscreen", LEFT_MODE);
+    BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"[INFO ] Init Touchscreen", LEFT_MODE);
     if (!initTouchscreen()) {
         BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"[ERROR] FAILED", LEFT_MODE);
         while(1);
     }   
 
-    BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"[INFO] Init SD", LEFT_MODE);
+    BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"[INFO ] Init SD", LEFT_MODE);
     if (!initSd()) {
         BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"[ERROR] FAILED", LEFT_MODE);
         while(1);
     }   
 
+    // Init emulator
     while(1);
     /* Emulator Test */
     // EmbeddedEmulator_init();

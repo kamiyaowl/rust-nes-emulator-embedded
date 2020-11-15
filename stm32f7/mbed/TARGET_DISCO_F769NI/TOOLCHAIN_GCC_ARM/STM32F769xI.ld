@@ -1,8 +1,14 @@
 /* Linker script to configure memory regions. */
 MEMORY
 { 
-  FLASH (rx) : ORIGIN = 0x08000000, LENGTH = 2048K
+  FLASH (rx)     : ORIGIN = 0x08000000, LENGTH = 2048K
   RAM (rwx)  : ORIGIN = 0x200001F8, LENGTH = 512K - 0x1F8
+
+
+  /* DTCM 64K for Emulation WorkBuffer */
+  /* EMU_WORK (rwx) : ORIGIN = 0x20000000, LENGTH = 64K */
+  /* DTCM 64K + SHRAM1 368K + SHRAM2 16K*/
+  /* RAM (rwx)      : ORIGIN = 0x200101F8, LENGTH = 448K - 0x1F8 */
 }
 
 /* Linker script to place sections and symbol values. Should be used together
@@ -76,6 +82,13 @@ SECTIONS
 
     __etext = .;
     _sidata = .;
+
+/*
+    .emu_work :
+    {
+        *(.emu_work*)
+    } > EMU_WORK
+*/
 
     .data : AT (__etext)
     {

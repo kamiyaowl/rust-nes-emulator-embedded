@@ -222,12 +222,14 @@ LINKER_SCRIPT ?= ../mbed/TARGET_DISCO_F769NI/TOOLCHAIN_GCC_ARM/STM32F769xI.ld
 ###############################################################################
 # Tools and Flags
 
-AS      = arm-none-eabi-gcc
-CC      = arm-none-eabi-gcc
-CPP     = arm-none-eabi-g++
-LD      = arm-none-eabi-gcc
-ELF2BIN = arm-none-eabi-objcopy
-PREPROC = arm-none-eabi-cpp -E -P -Wl,--gc-sections -Wl,--wrap,main -Wl,--wrap,_malloc_r -Wl,--wrap,_free_r -Wl,--wrap,_realloc_r -Wl,--wrap,_memalign_r -Wl,--wrap,_calloc_r -Wl,--wrap,exit -Wl,--wrap,atexit -Wl,-n -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=softfp
+AS        = arm-none-eabi-gcc
+CC        = arm-none-eabi-gcc
+CPP       = arm-none-eabi-g++
+LD        = arm-none-eabi-gcc
+ELF2BIN   = arm-none-eabi-objcopy
+ELF2DUMP  = arm-none-eabi-objdump
+ELF2MAP   = arm-none-eabi-ld
+PREPROC   = arm-none-eabi-cpp -E -P -Wl,--gc-sections -Wl,--wrap,main -Wl,--wrap,_malloc_r -Wl,--wrap,_free_r -Wl,--wrap,_realloc_r -Wl,--wrap,_memalign_r -Wl,--wrap,_calloc_r -Wl,--wrap,exit -Wl,--wrap,atexit -Wl,-n -mcpu=cortex-m7 -mthumb -mfpu=fpv5-d16 -mfloat-abi=softfp
 
 C_FLAGS += -std=gnu11
 C_FLAGS += -include
@@ -448,9 +450,10 @@ LD_SYS_LIBS :=-Wl,--start-group -lstdc++ -lsupc++ -lm -lc -lgcc -lnosys -lmbed -
 # Rules
 
 .PHONY: all lst size
+all: build size objdump map readelf
 
-
-all: $(PROJECT).bin $(PROJECT).hex size
+.PHONY: build
+build: $(PROJECT).bin $(PROJECT).hex
 
 
 .s.o:
@@ -482,8 +485,6 @@ all: $(PROJECT).bin $(PROJECT).hex size
 $(PROJECT).link_script.ld: $(LINKER_SCRIPT)
 	@$(PREPROC) $< -o $@
 
-
-
 $(PROJECT).elf: $(OBJECTS) $(SYS_OBJECTS) $(PROJECT).link_script.ld 
 	+@echo "build rust-lib"
 	+@$(CARGO) build $(CARGOFLAGS)
@@ -499,6 +500,17 @@ $(PROJECT).bin: $(PROJECT).elf
 $(PROJECT).hex: $(PROJECT).elf
 	$(ELF2BIN) -O ihex $< $@
 
+.PHONY: objdump
+objdump: $(PROJECT).elf
+	$(ELF2DUMP) --prefix-addresses --headers --line-numbers --source --stabs -D $(PROJECT).elf > $(PROJECT).dump
+
+.PHONY: map
+map: $(PROJECT).elf
+	@arm-none-eabi-ld -Map=$(PROJECT).map $(PROJECT).elf
+
+.PHONY: readelf
+readelf: $(PROJECT).elf
+	@arm-none-eabi-readelf -a -S $(PROJECT).elf > $(PROJECT).readelf
 
 # Rules
 ###############################################################################
