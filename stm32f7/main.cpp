@@ -17,7 +17,7 @@
 
 // EMU_WORK on DTCM 64K
 #define EMU_WORK_SIZE (64*1024) // 64K
-static uint8_t emuWorkBuffer[EMU_WORK_SIZE];// __attribute__((section(".emu_work")));
+MBED_ALIGN(32) static uint8_t emuWorkBuffer[EMU_WORK_SIZE]; // MBED_SECTION(".emu_work");
 
 // user specified values
 #define PRINT_MESSAGE_HEIGHT (20)
