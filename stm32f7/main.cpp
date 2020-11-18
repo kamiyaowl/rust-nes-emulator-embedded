@@ -187,7 +187,9 @@ int main(void) {
     wait_ms(1000);
     BSP_LCD_Clear(LCD_COLOR_BLACK);
     const uint32_t cyclePerFrame = EmbeddedEmulator_GetCpuCyclePerFrame();
-    while(1) {
+    for(uint32_t i = 0; ; i++) {
+        sprintf(msg, "%d", i);
+        BSP_LCD_DisplayStringAt(0, 0, (uint8_t *)msg, LEFT_MODE);
         // TODO: Input
         // for (const auto& [key, value]: keyMaps) {
         //     if (IsKeyPressed(key)) {
