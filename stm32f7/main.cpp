@@ -106,27 +106,40 @@ int main(void) {
     
     // Read binary from SD Card
     // TODO: FATFS support
+    const uint32_t readBlockAddr = 0;
+    const uint32_t readBytes = 64 * 1024; // 64KByte
+    const uint32_t blockSize = 512;
+    const uint32_t numOfReadBlocks = readBytes / blockSize;
+    const uint32_t readTimeout = 1000;
     BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"[INFO ] Read ROM from SD", LEFT_MODE);
-    if (MSD_OK != BSP_SD_ReadBlocks(reinterpret_cast<uint32_t*>(generalBufferPtr), 0x0, 0x1, 10)) {
+    if (MSD_OK != BSP_SD_ReadBlocks(reinterpret_cast<uint32_t*>(generalBufferPtr), readBlockAddr, numOfReadBlocks, readTimeout)) {
         BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"[ERROR] FAILED", LEFT_MODE);
         while(1);
     }
-    // Show HexDump
-    for (uint32_t i = 0; i < 0x10; i++) {
-        const uint32_t offset = i * 0x10;
-        sprintf(
-            msg, 
-            "%08x: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x ", 
-            generalBufferPtr + offset,
-            generalBufferPtr[offset + 0x00], generalBufferPtr[offset + 0x01], generalBufferPtr[offset + 0x02], generalBufferPtr[offset + 0x03], 
-            generalBufferPtr[offset + 0x04], generalBufferPtr[offset + 0x05], generalBufferPtr[offset + 0x06], generalBufferPtr[offset + 0x07], 
-            generalBufferPtr[offset + 0x08], generalBufferPtr[offset + 0x09], generalBufferPtr[offset + 0x0a], generalBufferPtr[offset + 0x0b], 
-            generalBufferPtr[offset + 0x0c], generalBufferPtr[offset + 0x0d], generalBufferPtr[offset + 0x0e], generalBufferPtr[offset + 0x0f]
-        );
-        BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)msg, LEFT_MODE);
+
+    // .NES Header Pre-check
+    BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"[INFO ] Check ROM Header", LEFT_MODE);
+    if ((generalBufferPtr[0] != 0x4e) || (generalBufferPtr[1] != 0x45) || (generalBufferPtr[2] != 0x53) || (generalBufferPtr[3] != 0x1a)) {
+        BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"[ERROR] bad format.", LEFT_MODE);
+        // Show HexDump
+        for (uint32_t i = 0; i < 0x10; i++) {
+            const uint32_t offset = i * 0x10;
+            sprintf(
+                msg, 
+                "%08x: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x ", 
+                generalBufferPtr + offset,
+                generalBufferPtr[offset + 0x00], generalBufferPtr[offset + 0x01], generalBufferPtr[offset + 0x02], generalBufferPtr[offset + 0x03], 
+                generalBufferPtr[offset + 0x04], generalBufferPtr[offset + 0x05], generalBufferPtr[offset + 0x06], generalBufferPtr[offset + 0x07], 
+                generalBufferPtr[offset + 0x08], generalBufferPtr[offset + 0x09], generalBufferPtr[offset + 0x0a], generalBufferPtr[offset + 0x0b], 
+                generalBufferPtr[offset + 0x0c], generalBufferPtr[offset + 0x0d], generalBufferPtr[offset + 0x0e], generalBufferPtr[offset + 0x0f]
+            );
+            BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)msg, LEFT_MODE);
+        }
     }
 
     // Init emulator
+
+    
     while(1);
     /* Emulator Test */
     // EmbeddedEmulator_init();
