@@ -57,6 +57,7 @@ pub enum CpuInterrupt {
 #[repr(u8)]
 pub enum DrawPioxelFormat {
     RGBA8888,
+    BGRA8888,
     ARGB8888,
 }
 
@@ -134,8 +135,9 @@ pub unsafe extern "C" fn EmbeddedEmulator_SetPpuDrawOption(
 ) {
     let ppu_ref = convert_ref::<Ppu>(raw_ppu_ref);
     let pixel_format = match draw_pixel_format {
-        DrawPioxelFormat::ARGB8888 => PixelFormat::ARGB8888,
         DrawPioxelFormat::RGBA8888 => PixelFormat::RGBA8888,
+        DrawPioxelFormat::BGRA8888 => PixelFormat::BGRA8888,
+        DrawPioxelFormat::ARGB8888 => PixelFormat::ARGB8888,
     };
     (*ppu_ref).draw_option.fb_width = fb_width;
     (*ppu_ref).draw_option.fb_height = fb_height;

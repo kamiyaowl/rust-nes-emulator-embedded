@@ -183,6 +183,7 @@ impl LineStatus {
 #[derive(Copy, Clone)]
 pub enum PixelFormat {
     RGBA8888,
+    BGRA8888,
     ARGB8888,
 }
 
@@ -355,6 +356,7 @@ impl Ppu {
         // pixel formatの決定
         let pixel_indexes = match self.draw_option.pixel_format {
             PixelFormat::RGBA8888 => (0, 1, 2, 3),
+            PixelFormat::BGRA8888 => (2, 1, 0, 3),
             PixelFormat::ARGB8888 => (1, 2, 3, 0),
         };
 

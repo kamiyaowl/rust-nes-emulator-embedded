@@ -17,7 +17,7 @@
 
 // EMU_WORK on DTCM 64K
 #define EMU_WORK_SIZE (64*1024) // 64K
-MBED_ALIGN(32) static uint8_t emuWorkBuffer[EMU_WORK_SIZE]; // MBED_SECTION(".emu_work");
+MBED_ALIGN(32) uint8_t emuWorkBuffer[EMU_WORK_SIZE];
 
 // user specified values
 #define PRINT_MESSAGE_HEIGHT          (20)
@@ -56,6 +56,29 @@ bool initTouchscreen(void) {
 bool initSd(void) {
     return (BSP_SD_Init() == MSD_OK);
 }
+
+bool readRomFromSd(uint8_t* buffer) {
+    // TODO: FATFS support
+    const uint32_t readBlockAddr = 0;
+    const uint32_t readBytes = 64 * 1024; // 64KByte
+    const uint32_t blockSize = 512;
+    const uint32_t numOfReadBlocks = readBytes / blockSize;
+    const uint32_t readTimeout = 1000;
+
+    // read datas
+    if (MSD_OK != BSP_SD_ReadBlocks(reinterpret_cast<uint32_t*>(buffer), readBlockAddr, numOfReadBlocks, readTimeout)) {
+        return false;
+    }
+
+    // .NES Header Pre-check
+    if ((buffer[0] != 0x4e) || (buffer[1] != 0x45) || (buffer[2] != 0x53) || (buffer[3] != 0x1a)) {
+        return false;
+    }
+
+    // success
+    return true;
+}
+
 int main(void) {
     // Allocate SDRAM Buffer
     // Frame Buffer:
@@ -69,6 +92,7 @@ int main(void) {
 
     uint8_t* generalBufferPtr  = frameBuffer1Ptr + frameBufferSize;
     const uint32_t generalBufferSize = (SDRAM_SIZE - reinterpret_cast<uint32_t>(generalBufferPtr));
+    uint8_t* romBuf = generalBufferPtr;
 
     // work data
     char msg[128];
@@ -81,8 +105,6 @@ int main(void) {
     // Print startup info
     BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"kamiyaowl/rust-nes-emulator-embedded", LEFT_MODE);
     sprintf(msg, "[DEBUG] SystemCoreClock: %ld MHz", SystemCoreClock / 1000000ul);
-    BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)msg, LEFT_MODE);
-    sprintf(msg, "[DEBUG] emuWorkbufferAddr: %08x", emuWorkBuffer);
     BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)msg, LEFT_MODE);
 
     // Init other peripherals
@@ -105,22 +127,9 @@ int main(void) {
     }   
     
     // Read binary from SD Card
-    // TODO: FATFS support
-    const uint32_t readBlockAddr = 0;
-    const uint32_t readBytes = 64 * 1024; // 64KByte
-    const uint32_t blockSize = 512;
-    const uint32_t numOfReadBlocks = readBytes / blockSize;
-    const uint32_t readTimeout = 1000;
     BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"[INFO ] Read ROM from SD", LEFT_MODE);
-    if (MSD_OK != BSP_SD_ReadBlocks(reinterpret_cast<uint32_t*>(generalBufferPtr), readBlockAddr, numOfReadBlocks, readTimeout)) {
+    if (!readRomFromSd(generalBufferPtr)) {
         BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"[ERROR] FAILED", LEFT_MODE);
-        while(1);
-    }
-
-    // .NES Header Pre-check
-    BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"[INFO ] Check ROM Header", LEFT_MODE);
-    if ((generalBufferPtr[0] != 0x4e) || (generalBufferPtr[1] != 0x45) || (generalBufferPtr[2] != 0x53) || (generalBufferPtr[3] != 0x1a)) {
-        BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"[ERROR] bad format.", LEFT_MODE);
         // Show HexDump
         for (uint32_t i = 0; i < 0x10; i++) {
             const uint32_t offset = i * 0x10;
@@ -135,28 +144,75 @@ int main(void) {
             );
             BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)msg, LEFT_MODE);
         }
+        while(1);
     }
 
+    // Assign Emu work buffer
+    const uint32_t cpuDataSize    = EmbeddedEmulator_GetCpuDataSize();
+    const uint32_t systemDataSize = EmbeddedEmulator_GetSystemDataSize();
+    const uint32_t ppuDataSize    = EmbeddedEmulator_GetPpuDataSize();
+    uint8_t* cpuBuf    = &emuWorkBuffer[0];
+    uint8_t* systemBuf = &emuWorkBuffer[cpuDataSize];
+    uint8_t* ppuBuf    = &emuWorkBuffer[cpuDataSize + systemDataSize];
+
     // Init emulator
+    const uint32_t scale = 2;
+    const uint32_t fps   = 60; // TODO: Support
 
-    
-    while(1);
-    /* Emulator Test */
-    // EmbeddedEmulator_init();
-    // if (EmbeddedEmulator_load()) {
-    //     BSP_LCD_DisplayStringAt(20, 140, (uint8_t *)"Emulator ROM Load  : OK", LEFT_MODE);
-    // } else {
-    //     BSP_LCD_DisplayStringAt(20, 140, (uint8_t *)"Emulator ROM Load  : FAILED", LEFT_MODE);
-    // }
+    const uint32_t screenWidth  = DISPLAY_WIDTH;
+    const uint32_t screenHeight = DISPLAY_HEIGHT;
+    const uint32_t offsetX = (screenWidth / 2) - (EMBEDDED_EMULATOR_VISIBLE_SCREEN_WIDTH * scale / 2);
+    const uint32_t offsetY = 0;
 
+    EmbeddedEmulator_InitCpu(cpuBuf);
+    EmbeddedEmulator_InitSystem(systemBuf);
+    EmbeddedEmulator_InitPpu(ppuBuf);
+    EmbeddedEmulator_SetPpuDrawOption(ppuBuf, screenWidth, screenHeight, offsetX, offsetY, scale, DrawPioxelFormat::BGRA8888);
 
-    // wait_ms(3000);
-    // BSP_LCD_Clear(LCD_COLOR_BLACK);
+    // Load ROM
+    BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"[INFO ] Load ROM", LEFT_MODE);
 
-    // for (uint32_t counter = 0 ; ; ++counter ) {
-    //     EmbeddedEmulator_update_screen(&fb);
+    const bool isLoad = EmbeddedEmulator_LoadRom(systemBuf, romBuf);
+    if (!isLoad) {
+        BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"[ERROR] FAILED", LEFT_MODE);
+        while(1);
+    }
 
-    //     sprintf(msg, "%d", counter);
-    //     BSP_LCD_DisplayStringAt(5, 5, (uint8_t *)msg, LEFT_MODE);
-    // }
+    // Reset
+    BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"[INFO ] Reset Emulator", LEFT_MODE);
+    EmbeddedEmulator_Reset(cpuBuf, systemBuf, ppuBuf);
+
+    // Start Emulation
+    BSP_LCD_DisplayStringAt(0, (messageLine++ * PRINT_MESSAGE_HEIGHT), (uint8_t *)"[INFO ] Start Emulation", LEFT_MODE);
+    wait_ms(1000);
+    BSP_LCD_Clear(LCD_COLOR_BLACK);
+    const uint32_t cyclePerFrame = EmbeddedEmulator_GetCpuCyclePerFrame();
+    while(1) {
+        // TODO: Input
+        // for (const auto& [key, value]: keyMaps) {
+        //     if (IsKeyPressed(key)) {
+        //         EmbeddedEmulator_UpdateKey(systemBuf, EMBEDDED_EMULATOR_PLAYER_0, std::get<0>(value));
+        //     }
+        //     if (IsKeyReleased(key)) {
+        //         EmbeddedEmulator_UpdateKey(systemBuf, EMBEDDED_EMULATOR_PLAYER_0, std::get<1>(value));
+        //     }
+        // }
+        // if (IsKeyReleased(KEY_R)) {
+        //     std::cout << "INFO: Reset" << std::endl;
+        //     EmbeddedEmulator_Reset(cpuBuf, systemBuf, ppuBuf);
+        // }
+
+        // Emulate cpu/ppu
+        for(uint32_t cycleSum = 0; cycleSum < cyclePerFrame; ) {
+            // emulate cpu
+            const uint32_t cyc = EmbeddedEmulator_EmulateCpu(cpuBuf, systemBuf);
+            cycleSum += cyc;
+            // emulate ppu
+            const CpuInterrupt irq = EmbeddedEmulator_EmulatePpu(ppuBuf, systemBuf, frameBuffer0Ptr, cyc);
+            // Interrupt from ppu
+            if (irq != CpuInterrupt::NONE) {
+                EmbeddedEmulator_InterruptCpu(cpuBuf, systemBuf, irq);
+            }
+        }
+    }
 }
